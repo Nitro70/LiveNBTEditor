@@ -1,0 +1,24 @@
+# gradle / java
+.gradle/
+build/
+out/
+# dotnet
+bin/
+obj/
+.vs/
+*.user
+# ide
+.idea/
+*.iml
+
+# game/test run debris
+logs/
+test_output.txt
+
+# release build outputs (staged locally, uploaded as release assets — not source)
+publish-win-x64/
+release-assets/
+
+# python
+__pycache__/
+*.pyc

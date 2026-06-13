@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="LiveNBT.App/LiveNBT.App.csproj" />
+  <Project Path="LiveNBT.Protocol/LiveNBT.Protocol.csproj" />
+  <Project Path="LiveNBT.Tests/LiveNBT.Tests.csproj" />
+</Solution>

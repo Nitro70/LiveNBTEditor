@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "livenbt",
+  "version": "${version}",
+  "name": "LiveNBT",
+  "description": "Live NBT editing over WebSocket - edit player and world data in the running game.",
+  "authors": ["Nitro70"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["dev.nitro.livenbt.LiveNbtMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": "~26.1",
+    "fabric-api": "*"
+  }
+}

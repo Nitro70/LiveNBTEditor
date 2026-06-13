@@ -1,0 +1,14 @@
+# Normalize line endings: text files use LF in the repo, scripts keep their platform endings.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+gradlew text eol=lf
+*.sln text eol=crlf
+*.slnx text eol=lf
+
+# Treat known binaries as binary (no eol munging, no diff).
+*.jar binary
+*.png binary
+*.ico binary
+*.gradle.jar binary
+gradle-wrapper.jar binary

@@ -1,0 +1,70 @@
+plugins {
+    id 'java'
+    id 'xyz.wagyourtail.unimined' version '1.4.2-SNAPSHOT'
+}
+
+archivesBaseName = project.archives_base_name
+version = project.mod_version
+group = project.maven_group
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(project.java_version.toInteger()))
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { name = 'FabricMaven'; url = 'https://maven.fabricmc.net/' }
+}
+
+// MC 26.1+ is unobfuscated: official names, no remap (same setup as the baritone/altoclef ports).
+unimined.minecraft {
+    version project.minecraft_version
+    mappings {
+        devFallbackNamespace "official"
+    }
+    fabric {
+        loader project.fabric_loader_version
+    }
+    runs.off = true
+}
+
+dependencies {
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    // Embedded WebSocket server -- not shipped by vanilla, so JiJ it (same mechanism
+    // as jackson in the altoclef port). slf4j (its only dep) is provided by MC.
+    // transitive=false prevents Unimined's include configuration from also nesting
+    // META-INF/jars/slf4j-api-*.jar, which would shadow MC's own slf4j at runtime.
+    implementation "org.java-websocket:Java-WebSocket:${project.java_websocket_version}"
+    include("org.java-websocket:Java-WebSocket:${project.java_websocket_version}") { transitive = false }
+
+    // Gson is bundled with MC at runtime; explicit compile/test dep pins the API for javac.
+    compileOnly 'com.google.code.gson:gson:2.11.0'
+    testImplementation 'com.google.code.gson:gson:2.11.0'
+
+    // Authorized fallback: unimined.minecraft(sourceSets.main, sourceSets.test) overload did
+    // not apply on unimined 1.4.2-SNAPSHOT, so we pull MC classes into the test classpath this
+    // way instead.  ALL unit tests depend on this line for MC classes -- do NOT remove it.
+    testImplementation files(sourceSets.main.compileClasspath)
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release = project.java_version.toInteger()
+}

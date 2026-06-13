@@ -1,0 +1,12 @@
+pluginManagement {
+    repositories {
+        mavenLocal()
+        maven { name = 'WagYourMaven';          url = 'https://maven.wagyourtail.xyz/releases' }
+        maven { name = 'WagYourMavenSnapshots'; url = 'https://maven.wagyourtail.xyz/snapshots' }
+        maven { name = 'FabricMaven';           url = 'https://maven.fabricmc.net/' }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'livenbt'
