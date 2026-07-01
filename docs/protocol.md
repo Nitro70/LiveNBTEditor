@@ -42,6 +42,7 @@ All requests carry a client-chosen numeric `id`; the reply echoes it.
 {"id": 6, "op": "delete",  "root": "player:Nitro70", "path": "Tags[0]"}
 {"id": 7, "op": "watch",   "root": "player:Nitro70", "path": "Pos"}
 {"id": 8, "op": "unwatch", "root": "player:Nitro70", "path": "Pos"}
+{"id": 9, "op": "registry"}
 ```
 
 Semantics:
@@ -51,6 +52,7 @@ Semantics:
 - `add` → append to the list AT `path`, or create a new compound key (error if key exists — use `set`).
 - `delete` → remove compound key or list element (error if missing).
 - `watch` → server pushes an initial `update` at the next sample (within 4 ticks, ~200 ms) and then whenever the value changes. Watching a compound watches its whole subtree.
+- `registry` → reply `value` is `{"items": [...ids], "enchantments": [...ids]}` — live registry ids for the inventory editor's dropdowns.
 
 ## Server → client
 
@@ -122,6 +124,19 @@ Note: generic (non-fast-path) player edits round-trip through the entity's NBT
 load. Keys the entity loader does not consume (including unknown `abilities.*`
 keys) are silently discarded by the game — the op replies `ok` but the value
 will not appear in subsequent reads.
+
+## Inventory root
+
+`inventory:<player>` exposes the player's 41 slots as a virtual compound keyed by
+NBT slot number: `0`–`8` hotbar, `9`–`35` main, `100`–`103` armor, `-106` offhand.
+Every slot is present; an empty slot is an empty compound `{}`.
+
+- `get inventory:<player> ""` → the 41-slot compound. Each occupied slot is an item
+  compound `{id, count, components}` (the `Slot` key is stripped from the view).
+- `set inventory:<player> slot.<n>` with `{id, count, components?}` replaces slot `<n>`.
+  `delete inventory:<player> slot.<n>` (or `set` with `{}`) empties it.
+- `add` is unsupported. Edits reload the entity, so an invalid id/components is rejected
+  with a readable error and the player is restored unchanged.
 
 ## Auth & security
 

@@ -14,4 +14,11 @@ class RootRefTest {
         assertThrows(RootException.class, () -> RootRef.parse(""));
         assertThrows(RootException.class, () -> RootRef.parse(null));
     }
+
+    @Test void parsesInventory() throws Exception {
+        assertEquals(new RootRef(RootRef.Kind.INVENTORY, "Nitro70"), RootRef.parse("inventory:Nitro70"));
+    }
+    @Test void rejectsEmptyInventory() {
+        assertThrows(RootException.class, () -> RootRef.parse("inventory:"));
+    }
 }

@@ -31,7 +31,11 @@ public partial class MainWindow : Window
     private async void OnConnect(object sender, RoutedEventArgs e) => await _vm.ConnectAsync();
     private async void OnDisconnect(object sender, RoutedEventArgs e) => await _vm.DisconnectAsync();
     private async void OnLoadRoot(object sender, RoutedEventArgs e) => await _vm.LoadRootAsync();
-    private async void OnRefreshRoots(object sender, RoutedEventArgs e) => await _vm.RefreshRootsAsync();
+    private async void OnRefreshRoots(object sender, RoutedEventArgs e)
+    {
+        await _vm.RefreshRootsAsync();
+        await _vm.LoadRegistryAsync();
+    }
 
     // MenuItems inherit the placement target's DataContext, so one cast covers
     // both direct senders and context-menu items.
@@ -156,6 +160,25 @@ public partial class MainWindow : Window
         foreach (var child in kids)
             child.IsExpanded = filter.Length > 0 &&
                 child.Name.Contains(filter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async void OnOpenInventory(object sender, RoutedEventArgs e)
+    {
+        if (!_vm.IsConnected) { _vm.Status = "Connect first"; return; }
+
+        var players = _vm.Roots.Where(r => r.StartsWith("player:")).ToList();
+        string? playerRoot = _vm.SelectedRoot is { } sel && sel.StartsWith("player:") ? sel
+            : players.Count == 1 ? players[0] : null;
+        if (playerRoot is null)
+        {
+            _vm.Status = "Select a player in the Roots dropdown, then click Inventory";
+            return;
+        }
+
+        string invRoot = "inventory:" + playerRoot["player:".Length..];
+        if (_vm.ItemIds.Count == 0) await _vm.LoadRegistryAsync();
+        var invVm = new ViewModels.InventoryViewModel(_vm, invRoot, _vm.ItemIds, _vm.EnchantmentIds);
+        new InventoryWindow(invVm) { Owner = this }.Show();
     }
 
     private void OnEditProfiles(object sender, RoutedEventArgs e)

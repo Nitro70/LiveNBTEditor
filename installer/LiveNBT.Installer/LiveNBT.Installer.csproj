@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>LiveNBT-Setup</AssemblyName>
+    <RootNamespace>LiveNBT.Installer</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The agent jar is copied here by build.ps1 before publish (it's a build artifact, gitignored).
+         Condition keeps a plain `dotnet build` (without the jar) working for CI/compile checks. -->
+    <EmbeddedResource Include="Resources\livenbt-agent.jar" Condition="Exists('Resources\livenbt-agent.jar')" />
+  </ItemGroup>
+
+</Project>

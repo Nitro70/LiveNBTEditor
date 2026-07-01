@@ -4,6 +4,13 @@
     <ProjectReference Include="..\LiveNBT.Protocol\LiveNBT.Protocol.csproj" />
   </ItemGroup>
 
+  <!-- Full vanilla 26.2 item + enchantment ids, so the dropdowns are populated with the whole game
+       even before/without a live registry fetch. Regenerate from a connected server if MC updates. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\items.txt" />
+    <EmbeddedResource Include="Resources\enchantments.txt" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>

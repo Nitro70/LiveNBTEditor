@@ -30,6 +30,8 @@
                 <Button Content="Load" Click="OnLoadRoot"/>
                 <Button Content="⟳ Roots" Click="OnRefreshRoots"/>
                 <Separator/>
+                <Button Content="&#x1F392; Inventory" Click="OnOpenInventory"/>
+                <Separator/>
                 <TextBox Width="180"
                          Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                          TextChanged="OnFilterChanged" ToolTip="Filter top-level branches by tag name"/>

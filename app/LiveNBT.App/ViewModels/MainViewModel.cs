@@ -1,12 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows;
+using LiveNBT.App.Inventory;
 using LiveNBT.App.Services;
 using LiveNBT.Protocol;
 
 namespace LiveNBT.App.ViewModels;
 
-public sealed class MainViewModel : ViewModelBase
+public sealed class MainViewModel : ViewModelBase, IServerSession
 {
     private readonly WsClient _client = new();
     private readonly ProfileStore _profileStore = new();
@@ -47,6 +48,10 @@ public sealed class MainViewModel : ViewModelBase
     public string Status { get => _status; set => Set(ref _status, value); }
     public bool IsConnected { get => _isConnected; set => Set(ref _isConnected, value); }
     public string FilterText { get => _filterText; set => Set(ref _filterText, value); }
+    // Default to the full bundled vanilla lists so the dropdowns work immediately, even before a
+    // connection; a live registry reply overrides these when it returns something (see LoadRegistryAsync).
+    public IReadOnlyList<string> ItemIds { get; private set; } = BundledRegistry.Items;
+    public IReadOnlyList<string> EnchantmentIds { get; private set; } = BundledRegistry.Enchantments;
 
     public void ReloadProfiles()
     {
@@ -67,6 +72,7 @@ public sealed class MainViewModel : ViewModelBase
             IsConnected = true;
             Status = $"Connected to {p.Host}:{p.Port}";
             await RefreshRootsAsync();
+            await LoadRegistryAsync();
         }
         catch (Exception e)
         {
@@ -106,6 +112,22 @@ public sealed class MainViewModel : ViewModelBase
         {
             Status = $"roots failed: {e.Message}";
         }
+    }
+
+    public Task<ServerMessage> RequestAsync(string op, string? root = null, string? path = null, NbtNode? value = null)
+        => _client.RequestAsync(op, root, path, value);
+
+    public async Task LoadRegistryAsync()
+    {
+        try
+        {
+            ServerMessage reply = await _client.RequestAsync("registry");
+            if (!reply.Ok || reply.RawValue is null) return;   // older mod without the op: keep bundled lists
+            (var items, var ench) = RegistryReply.Parse(reply.RawValue);
+            if (items.Count > 0) ItemIds = items;              // let the live server override; else keep bundled
+            if (ench.Count > 0) EnchantmentIds = ench;
+        }
+        catch (Exception e) { Status = $"registry unavailable: {e.Message}"; }   // non-fatal: dropdowns stay empty
     }
 
     public async Task LoadRootAsync()

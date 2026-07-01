@@ -17,7 +17,7 @@ public class ProfileStoreTests
             var profiles = new List<Profile>
             {
                 new("Singleplayer", "127.0.0.1", 25599, "tok1"),
-                new("My Server", "192.168.1.50", 25599, "tok2"),
+                new("Home server", "203.0.113.10", 25599, "tok2"),
             };
             store.Save(profiles);
             Assert.Equal(profiles, new ProfileStore(dir).Load());

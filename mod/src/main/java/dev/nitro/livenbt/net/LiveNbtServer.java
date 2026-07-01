@@ -8,6 +8,7 @@ import dev.nitro.livenbt.protocol.Replies;
 import dev.nitro.livenbt.protocol.Request;
 import dev.nitro.livenbt.roots.RootAdapter;
 import dev.nitro.livenbt.roots.RootRegistry;
+import dev.nitro.livenbt.roots.RootSnapshots;
 import dev.nitro.livenbt.watch.WatchManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -54,8 +55,11 @@ public final class LiveNbtServer extends WebSocketServer {
     private final OpQueue queue;
     private final WatchManager watches;
     private final RootRegistry registry;
+    private final RootSnapshots snapshots;
+    private final ClientPresence presence;
 
-    public LiveNbtServer(LiveNbtConfig config, OpQueue queue, WatchManager watches, RootRegistry registry) {
+    public LiveNbtServer(LiveNbtConfig config, OpQueue queue, WatchManager watches,
+                         RootRegistry registry, RootSnapshots snapshots, ClientPresence presence) {
         // Protocol("") accepts clients that send no Sec-WebSocket-Protocol header (the
         // normal case — python websockets, C# ClientWebSocket). An empty protocol list
         // makes Draft_6455 reject every standard handshake with HTTP 404.
@@ -66,6 +70,8 @@ public final class LiveNbtServer extends WebSocketServer {
         this.queue = queue;
         this.watches = watches;
         this.registry = registry;
+        this.snapshots = snapshots;
+        this.presence = presence;
         setReuseAddr(true);
     }
 
@@ -83,7 +89,10 @@ public final class LiveNbtServer extends WebSocketServer {
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         Session s = conn.getAttachment();
-        if (s != null) queue.submit(() -> watches.removeAll(s));
+        if (s != null) {
+            if (s.authed) presence.onDisconnect();   // stop keeping the game awake once the last client leaves
+            queue.submit(() -> watches.removeAll(s));
+        }
     }
 
     @Override
@@ -108,7 +117,10 @@ public final class LiveNbtServer extends WebSocketServer {
         }
         if (req.op().equals("auth")) {
             if (req.token() != null && constantTimeEquals(req.token(), config.token())) {
-                session.authed = true;
+                if (!session.authed) {   // count each client once, even if it re-sends auth
+                    session.authed = true;
+                    presence.onConnect();   // start keeping the game awake while this client is attached
+                }
                 session.send(Replies.ok(req.id()));
             } else {
                 session.send(Replies.error(req.id(), "bad token"));
@@ -119,14 +131,21 @@ public final class LiveNbtServer extends WebSocketServer {
             session.send(Replies.error(req.id(), "not authenticated"));
             return;
         }
-        queue.submit(() -> handleOnServerThread(session, req));
+        // roots + registry are pure reads served from a server-thread snapshot, so answer them
+        // straight off the WS thread. Routing them through the tick queue would make them time out
+        // whenever the integrated server is paused — which is exactly when the app is being used.
+        switch (req.op()) {
+            case "roots" -> session.send(Replies.ok(req.id(), snapshots.roots()));
+            case "registry" -> session.send(Replies.ok(req.id(), snapshots.registries()));
+            default -> queue.submit(() -> handleOnServerThread(session, req));
+        }
     }
 
     /** Server thread. Replies are built here and sent via the (thread-safe) conn.send. */
     private void handleOnServerThread(Session session, Request req) {
         try {
             switch (req.op()) {
-                case "roots" -> session.send(Replies.ok(req.id(), registry.listRoots()));
+                // "roots" and "registry" are handled off-queue in onMessage (server-thread snapshot).
                 case "get" -> {
                     RootAdapter adapter = registry.resolve(req.root());
                     CompoundTag snap = adapter.snapshot();

@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'xyz.wagyourtail.unimined' version '1.4.2-SNAPSHOT'
+    id 'com.gradleup.shadow' version '8.3.6'
 }
 
 archivesBaseName = project.archives_base_name
@@ -18,37 +19,30 @@ repositories {
     maven { name = 'FabricMaven'; url = 'https://maven.fabricmc.net/' }
 }
 
-// MC 26.1+ is unobfuscated: official names, no remap (same setup as the baritone/altoclef ports).
+// MC 26.1+ is unobfuscated (official names, no remap). No mod loader — this jar is a plain -javaagent,
+// so Unimined only provides the Minecraft compile classpath (no fabric{} block).
 unimined.minecraft {
     version project.minecraft_version
     mappings {
         devFallbackNamespace "official"
     }
-    fabric {
-        loader project.fabric_loader_version
-    }
     runs.off = true
 }
 
 dependencies {
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    // Bytecode weaving (agent) + embedded WebSocket server. MC provides neither, so both are shaded
+    // into the agent jar. ByteBuddy 1.17.8 bundles ASM 9.9 (reads MC's Java-25 classfiles).
+    implementation 'net.bytebuddy:byte-buddy:1.17.8'
+    implementation("org.java-websocket:Java-WebSocket:${project.java_websocket_version}") {
+        exclude group: 'org.slf4j', module: 'slf4j-api'   // MC provides slf4j at runtime; don't shade a duplicate
+    }
 
-    // Embedded WebSocket server -- not shipped by vanilla, so JiJ it (same mechanism
-    // as jackson in the altoclef port). slf4j (its only dep) is provided by MC.
-    // transitive=false prevents Unimined's include configuration from also nesting
-    // META-INF/jars/slf4j-api-*.jar, which would shadow MC's own slf4j at runtime.
-    implementation "org.java-websocket:Java-WebSocket:${project.java_websocket_version}"
-    include("org.java-websocket:Java-WebSocket:${project.java_websocket_version}") { transitive = false }
-
-    // Gson is bundled with MC at runtime; explicit compile/test dep pins the API for javac.
+    // Provided by Minecraft at runtime (gson + slf4j are on the launcher classpath).
     compileOnly 'com.google.code.gson:gson:2.11.0'
     testImplementation 'com.google.code.gson:gson:2.11.0'
 
-    // Authorized fallback: unimined.minecraft(sourceSets.main, sourceSets.test) overload did
-    // not apply on unimined 1.4.2-SNAPSHOT, so we pull MC classes into the test classpath this
-    // way instead.  ALL unit tests depend on this line for MC classes -- do NOT remove it.
+    // ALL unit tests depend on this line for MC classes on the test classpath — do NOT remove it.
     testImplementation files(sourceSets.main.compileClasspath)
-
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
@@ -57,14 +51,34 @@ test {
     useJUnitPlatform()
 }
 
-processResources {
-    inputs.property "version", project.version
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
+// Shadow's relocation remapper (ASM) can't READ Java-25 bytecode (major 69) and it re-writes our own
+// classes during relocation — so emit Java-21 bytecode. Runs fine on the Java-25 JVM.
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release = 21
+}
+
+jar {
+    manifest {
+        attributes(
+                'Premain-Class': 'dev.nitro.livenbt.agent.LiveNbtAgent',
+                'Can-Retransform-Classes': 'true',
+                'Can-Redefine-Classes': 'true'
+        )
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    it.options.encoding = "UTF-8"
-    it.options.release = project.java_version.toInteger()
+// The deliverable is the shaded agent jar: our classes + relocated ByteBuddy + Java-WebSocket, with
+// the Premain manifest. Minecraft/gson/slf4j are compileOnly, so they are NOT bundled.
+shadowJar {
+    archiveClassifier = ''
+    relocate 'net.bytebuddy', 'livenbt.shaded.bytebuddy'
+    mergeServiceFiles()
+    manifest {
+        attributes(
+                'Premain-Class': 'dev.nitro.livenbt.agent.LiveNbtAgent',
+                'Can-Retransform-Classes': 'true',
+                'Can-Redefine-Classes': 'true'
+        )
+    }
 }
