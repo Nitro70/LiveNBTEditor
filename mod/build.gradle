@@ -62,6 +62,7 @@ jar {
     manifest {
         attributes(
                 'Premain-Class': 'dev.nitro.livenbt.agent.LiveNbtAgent',
+                'Agent-Class': 'dev.nitro.livenbt.agent.LiveNbtAgent',
                 'Can-Retransform-Classes': 'true',
                 'Can-Redefine-Classes': 'true'
         )
@@ -77,6 +78,7 @@ shadowJar {
     manifest {
         attributes(
                 'Premain-Class': 'dev.nitro.livenbt.agent.LiveNbtAgent',
+                'Agent-Class': 'dev.nitro.livenbt.agent.LiveNbtAgent',
                 'Can-Retransform-Classes': 'true',
                 'Can-Redefine-Classes': 'true'
         )

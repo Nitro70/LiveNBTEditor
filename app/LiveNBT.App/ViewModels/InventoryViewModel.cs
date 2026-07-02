@@ -19,8 +19,6 @@ public sealed class InventoryViewModel : ViewModelBase
         _root = root;
         ItemIds = itemIds;
         EnchantmentIds = enchantmentIds;
-        FilteredItemIds = itemIds.Take(200).ToList();
-        FilteredEnchantIds = enchantmentIds.Take(200).ToList();
 
         foreach (int n in InventoryRegions.SlotOrder) Slots.Add(new SlotItem(n));
         Hotbar = Group(InventoryRegions.Hotbar);
@@ -35,27 +33,14 @@ public sealed class InventoryViewModel : ViewModelBase
     public IReadOnlyList<SlotItem> Armor { get; }
     public IReadOnlyList<SlotItem> Offhand { get; }
 
+    /// <summary>Full registry lists; the SearchBox controls filter these themselves.</summary>
     public IReadOnlyList<string> ItemIds { get; }
     public IReadOnlyList<string> EnchantmentIds { get; }
-    public List<string> FilteredItemIds { get; private set; }
-    public List<string> FilteredEnchantIds { get; private set; }
 
     public SlotItem? SelectedSlot { get => _selectedSlot; set => Set(ref _selectedSlot, value); }
     public string Status { get => _status; set => Set(ref _status, value); }
 
     private List<SlotItem> Group(int[] numbers) => numbers.Select(n => Slots.First(s => s.SlotNumber == n)).ToList();
-
-    public void SetItemQuery(string query)
-    {
-        FilteredItemIds = InventoryFilter.Filter(ItemIds, query);
-        Raise(nameof(FilteredItemIds));
-    }
-
-    public void SetEnchantQuery(string query)
-    {
-        FilteredEnchantIds = InventoryFilter.Filter(EnchantmentIds, query);
-        Raise(nameof(FilteredEnchantIds));
-    }
 
     public async Task LoadAsync() => await Reload(skipSelected: false, successStatus: "Loaded inventory");
 

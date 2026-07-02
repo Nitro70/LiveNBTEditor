@@ -5,12 +5,14 @@
         <TextBox x:Name="Input"
                  TextChanged="OnInputTextChanged"
                  PreviewKeyDown="OnInputKeyDown"
+                 GotKeyboardFocus="OnInputGotFocus"
                  LostKeyboardFocus="OnInputLostFocus"/>
         <Popup x:Name="Pop" StaysOpen="False" Focusable="False"
                PlacementTarget="{Binding ElementName=Input}" Placement="Bottom"
                Width="{Binding ActualWidth, ElementName=Input}"
                AllowsTransparency="True">
-            <Border Background="White" BorderBrush="#888" BorderThickness="1" SnapsToDevicePixels="True">
+            <Border Background="{StaticResource Bg1Brush}" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="4" Margin="0,3,0,0" SnapsToDevicePixels="True">
                 <ListBox x:Name="List" MaxHeight="220"
                          MouseLeftButtonUp="OnListClick"
                          PreviewKeyDown="OnListKeyDown"/>

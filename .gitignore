@@ -20,8 +20,9 @@ publish-win-x64/
 release-assets/
 installer/dist/
 installer/staging/
-# the agent jar is embedded into the installer at build time (build artifact, not source)
+# the agent jar is embedded into the installer + app at build time (build artifact, not source)
 installer/**/Resources/*.jar
+app/LiveNBT.App/Resources/*.jar
 
 # python
 __pycache__/

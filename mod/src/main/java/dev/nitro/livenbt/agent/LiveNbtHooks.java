@@ -75,6 +75,9 @@ public final class LiveNbtHooks {
     /** Server is stopping (worlds still valid). Stops the WebSocket server and re-arms start for the next world. */
     public static synchronized void onServerStopping(MinecraftServer server) {
         stopWs(1000);
+        // run stragglers (queued edits + the watch removals stopWs just enqueued) while this world's
+        // server is still valid — nothing may survive the reload and execute against the next world
+        queue.drainAll();
         presence.reset();     // no clients across a world reload; let the next world pause normally until one attaches
         registry = null;
         started.set(false);   // re-arm: the next world's first tick restarts LiveNBT (same JVM)

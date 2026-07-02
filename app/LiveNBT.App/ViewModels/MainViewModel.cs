@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Threading;
 using LiveNBT.App.Inventory;
 using LiveNBT.App.Services;
 using LiveNBT.Protocol;
@@ -18,6 +19,10 @@ public sealed class MainViewModel : ViewModelBase, IServerSession
     private NodeViewModel? _treeRoot;
     private string _filterText = "";
     private bool _refreshingTree;
+    private bool _userDisconnected;
+    private bool _reconnecting;
+    private bool _autoReconnect = true;
+    private DispatcherTimer? _reconnectTimer;
 
     public MainViewModel()
     {
@@ -27,8 +32,42 @@ public sealed class MainViewModel : ViewModelBase, IServerSession
         {
             IsConnected = false;
             Status = $"Disconnected: {reason}";
+            MaybeScheduleReconnect();
         });
         _client.ProtocolNotice += notice => OnUi(() => Status = notice);
+    }
+
+    /// <summary>Retry the last profile every few seconds after an unexpected drop (e.g. world closed).</summary>
+    public bool AutoReconnect
+    {
+        get => _autoReconnect;
+        set { if (Set(ref _autoReconnect, value) && !value) _reconnectTimer?.Stop(); }
+    }
+
+    private void MaybeScheduleReconnect()
+    {
+        if (!AutoReconnect || _userDisconnected || SelectedProfile is null) return;
+        _reconnectTimer ??= CreateReconnectTimer();
+        if (!_reconnectTimer.IsEnabled)
+        {
+            Status = "Connection lost — reconnecting…";
+            _reconnectTimer.Start();
+        }
+    }
+
+    private DispatcherTimer CreateReconnectTimer()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        timer.Tick += async (_, _) =>
+        {
+            if (IsConnected || _userDisconnected || !AutoReconnect) { timer.Stop(); return; }
+            if (_reconnecting) return;   // a slow attempt is still in flight
+            _reconnecting = true;
+            try { await ConnectAsync(silentRetry: true); }
+            finally { _reconnecting = false; }
+            if (IsConnected) timer.Stop();
+        };
+        return timer;
     }
 
     private static void OnUi(Action action)
@@ -61,9 +100,14 @@ public sealed class MainViewModel : ViewModelBase, IServerSession
 
     public void SaveProfiles() => _profileStore.Save(Profiles.ToList());
 
-    public async Task ConnectAsync()
+    private bool _connectBusy;
+
+    public async Task ConnectAsync(bool silentRetry = false)
     {
         if (SelectedProfile is not { } p) { Status = "Pick a profile first"; return; }
+        if (_connectBusy) return;   // an attempt is already in flight; a second click must not join it
+        _connectBusy = true;
+        _userDisconnected = false;
         try
         {
             Status = $"Connecting to {p.Host}:{p.Port}…";
@@ -73,15 +117,56 @@ public sealed class MainViewModel : ViewModelBase, IServerSession
             Status = $"Connected to {p.Host}:{p.Port}";
             await RefreshRootsAsync();
             await LoadRegistryAsync();
+            // one less click: show the selected root (the first player by default) right away
+            if (TreeRoot is null && SelectedRoot is not null) await LoadRootAsync();
         }
         catch (Exception e)
         {
-            Status = $"Connect failed: {e.Message}";
+            // the failed attempt already tore down whatever connection existed (WsClient disposes
+            // before reconnecting), so reflect reality — otherwise the dot stays green forever
+            IsConnected = _client.IsConnected;
+            Status = silentRetry ? "Reconnecting…" : $"Connect failed: {e.Message}";
         }
+        finally
+        {
+            _connectBusy = false;
+        }
+    }
+
+    /// <summary>One-click "arg-less" path: find a running Minecraft, load the agent into it via
+    /// Dynamic Attach (no JVM args), then connect using the token the agent reports.</summary>
+    public async Task AttachAndConnectAsync()
+    {
+        if (_connectBusy) return;
+        MinecraftTarget? target = AttachService.FindMinecraft();
+        if (target is null)
+        {
+            Status = "No running Minecraft found — launch the game and open a world, then try again.";
+            return;
+        }
+        Status = $"Attaching to Minecraft (pid {target.Pid})…";
+        AttachResult r = await AttachService.AttachAsync(target);
+        if (!r.Ok || r.Token is null) { Status = r.Message; return; }
+
+        // upsert a profile carrying the agent's own token, select it, and connect
+        var profile = new Profile("Attached (this PC)", r.Host!, r.Port, r.Token);
+        Profile? existing = Profiles.FirstOrDefault(p => p.Name == profile.Name);
+        if (existing is not null) Profiles[Profiles.IndexOf(existing)] = profile;
+        else Profiles.Add(profile);
+        SelectedProfile = profile;
+
+        for (int i = 0; i < 4 && !IsConnected; i++)   // the agent's WS server binds a beat after attach
+        {
+            if (i > 0) await Task.Delay(500);
+            await ConnectAsync(silentRetry: i > 0);
+        }
+        if (IsConnected) Status = "Attached and connected — no launch arguments needed.";
     }
 
     public async Task DisconnectAsync()
     {
+        _userDisconnected = true;
+        _reconnectTimer?.Stop();
         try
         {
             await _client.DisposeAsync();
@@ -100,13 +185,14 @@ public sealed class MainViewModel : ViewModelBase, IServerSession
         {
             ServerMessage reply = await _client.RequestAsync("roots");
             if (!reply.Ok || reply.RawValue is null) { Status = $"roots failed: {reply.Error}"; return; }
+            string? previous = SelectedRoot;   // Roots.Clear() nulls the ComboBox selection
             Roots.Clear();
             using var doc = JsonDocument.Parse(reply.RawValue);
             foreach (var pl in doc.RootElement.GetProperty("players").EnumerateArray())
                 Roots.Add($"player:{pl.GetString()}");
             foreach (var w in doc.RootElement.GetProperty("worlds").EnumerateArray())
                 Roots.Add($"world:{w.GetString()}");
-            SelectedRoot ??= Roots.FirstOrDefault();
+            SelectedRoot = Roots.FirstOrDefault(r => r == previous) ?? Roots.FirstOrDefault();
         }
         catch (Exception e)
         {

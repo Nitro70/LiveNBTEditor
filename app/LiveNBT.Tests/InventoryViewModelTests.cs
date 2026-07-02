@@ -1,4 +1,5 @@
 using System.Globalization;
+using LiveNBT.App.Inventory;
 using LiveNBT.App.Services;
 using LiveNBT.App.ViewModels;
 using LiveNBT.Protocol;
@@ -86,10 +87,11 @@ public class InventoryViewModelTests
     }
 
     [Fact]
-    public void ItemQueryFiltersList()
+    public void ExposesRegistryListsForTheSearchBoxes()
     {
         var vm = NewVm(new FakeSession());
-        vm.SetItemQuery("sword");
-        Assert.Equal(["minecraft:diamond_sword"], vm.FilteredItemIds);
+        // filtering itself lives in InventoryFilter (used by SearchBox); the VM just carries the lists
+        Assert.Contains("minecraft:diamond_sword", vm.ItemIds);
+        Assert.Equal(["minecraft:diamond_sword"], InventoryFilter.Filter(vm.ItemIds, "sword"));
     }
 }

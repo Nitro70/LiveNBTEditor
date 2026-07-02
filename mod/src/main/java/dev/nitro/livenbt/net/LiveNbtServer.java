@@ -45,6 +45,9 @@ public final class LiveNbtServer extends WebSocketServer {
     static final class Session implements WatchManager.Sender {
         final WebSocket conn;
         volatile boolean authed;
+        /** Auth (worker thread) and close (selector thread) race; guarded by synchronized(this) so
+         * the ClientPresence counter is bumped exactly once per session and always un-bumped. */
+        boolean closed;
         int watchCount; // server thread only
         Session(WebSocket conn) { this.conn = conn; }
         @Override public void send(String json) { if (conn.isOpen()) conn.send(json); }
@@ -90,7 +93,12 @@ public final class LiveNbtServer extends WebSocketServer {
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         Session s = conn.getAttachment();
         if (s != null) {
-            if (s.authed) presence.onDisconnect();   // stop keeping the game awake once the last client leaves
+            boolean wasAuthed;
+            synchronized (s) {
+                s.closed = true;
+                wasAuthed = s.authed;
+            }
+            if (wasAuthed) presence.onDisconnect();   // stop keeping the game awake once the last client leaves
             queue.submit(() -> watches.removeAll(s));
         }
     }
@@ -117,10 +125,14 @@ public final class LiveNbtServer extends WebSocketServer {
         }
         if (req.op().equals("auth")) {
             if (req.token() != null && constantTimeEquals(req.token(), config.token())) {
-                if (!session.authed) {   // count each client once, even if it re-sends auth
-                    session.authed = true;
-                    presence.onConnect();   // start keeping the game awake while this client is attached
+                boolean counted = false;
+                synchronized (session) {   // vs onClose: never bump the counter for an already-closed session
+                    if (!session.closed && !session.authed) {
+                        session.authed = true;
+                        counted = true;
+                    }
                 }
+                if (counted) presence.onConnect();   // start keeping the game awake while this client is attached
                 session.send(Replies.ok(req.id()));
             } else {
                 session.send(Replies.error(req.id(), "bad token"));

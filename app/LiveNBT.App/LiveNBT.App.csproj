@@ -2,6 +2,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LiveNBT.Protocol\LiveNBT.Protocol.csproj" />
+    <!-- reads the Minecraft process command line (WMI) for the one-click Attach flow -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- The agent jar, embedded so "Attach to Minecraft" is self-contained. Staged by installer/build.ps1
+       (or copy mod\build\libs\livenbt-agent-*.jar here); Condition keeps dev builds working without it. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\livenbt-agent.jar" Condition="Exists('Resources\livenbt-agent.jar')" />
   </ItemGroup>
 
   <!-- Full vanilla 26.2 item + enchantment ids, so the dropdowns are populated with the whole game

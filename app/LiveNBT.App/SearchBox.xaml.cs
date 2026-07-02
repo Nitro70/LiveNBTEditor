@@ -53,6 +53,14 @@ public partial class SearchBox : UserControl
     {
         if (_syncing) return;                // programmatic sync, not the user typing
         SetCurrentValue(TextProperty, Input.Text);
+        ShowSuggestions();
+    }
+
+    /// <summary>Clicking into the field shows the (filtered) list right away — no keystroke needed.</summary>
+    private void OnInputGotFocus(object sender, KeyboardFocusChangedEventArgs e) => ShowSuggestions();
+
+    private void ShowSuggestions()
+    {
         var matches = InventoryFilter.Filter(Suggestions ?? [], Input.Text);
         List.ItemsSource = matches;
         Pop.IsOpen = matches.Count > 0 && Input.IsKeyboardFocusWithin;

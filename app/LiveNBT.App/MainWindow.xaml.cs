@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using LiveNBT.App.Services;
 using LiveNBT.App.ViewModels;
 using LiveNBT.Protocol;
 
@@ -11,11 +12,17 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm = new();
     private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly SettingsStore _settingsStore = new();
+    private readonly AppSettings _settings;
 
     public MainWindow()
     {
         InitializeComponent();
+        WindowTheming.UseDarkTitleBar(this);
         DataContext = _vm;
+        _settings = _settingsStore.Load();
+        ApplyWindowBounds();
+        _vm.AutoReconnect = _settings.AutoReconnect;
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.TreeRoot))
@@ -23,11 +30,77 @@ public partial class MainWindow : Window
         };
         _pollTimer.Tick += async (_, _) => await _vm.RefreshTreeAsync();
         _pollTimer.Start();
+        Loaded += async (_, _) =>
+        {
+            Profile? last = _vm.Profiles.FirstOrDefault(p => p.Name == _settings.LastProfile)
+                            ?? _vm.Profiles.FirstOrDefault();
+            if (last is not null) _vm.SelectedProfile = last;
+            if (_settings.AutoConnect && _vm.SelectedProfile is not null) await _vm.ConnectAsync();
+        };
+    }
+
+    /// <summary>Restore the saved size/position, but never place the window off every screen.</summary>
+    private void ApplyWindowBounds()
+    {
+        if (_settings.WindowWidth >= 400 && _settings.WindowHeight >= 300)
+        {
+            Width = _settings.WindowWidth;
+            Height = _settings.WindowHeight;
+        }
+        double vLeft = SystemParameters.VirtualScreenLeft, vTop = SystemParameters.VirtualScreenTop;
+        if (!double.IsNaN(_settings.WindowLeft) && !double.IsNaN(_settings.WindowTop) &&
+            _settings.WindowLeft >= vLeft - 8 && _settings.WindowTop >= vTop - 8 &&
+            _settings.WindowLeft < vLeft + SystemParameters.VirtualScreenWidth - 60 &&
+            _settings.WindowTop < vTop + SystemParameters.VirtualScreenHeight - 60)
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = _settings.WindowLeft;
+            Top = _settings.WindowTop;
+        }
+        if (_settings.WindowMaximized) WindowState = WindowState.Maximized;
+    }
+
+    private void SaveSettings()
+    {
+        _settings.WindowMaximized = WindowState == WindowState.Maximized;
+        Rect bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        _settings.WindowWidth = bounds.Width;
+        _settings.WindowHeight = bounds.Height;
+        _settings.WindowLeft = bounds.Left;
+        _settings.WindowTop = bounds.Top;
+        _settings.LastProfile = _vm.SelectedProfile?.Name;
+        _settings.AutoReconnect = _vm.AutoReconnect;
+        try { _settingsStore.Save(_settings); } catch { /* settings are never worth blocking exit */ }
     }
 
     private async void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
-        => await _vm.DisconnectAsync();
+    {
+        SaveSettings();
+        await _vm.DisconnectAsync();
+    }
 
+    private async void OnWindowKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.F5)
+        {
+            e.Handled = true;
+            await _vm.RefreshTreeAsync();
+            if (_vm.IsConnected) _vm.Status = "Refreshed";
+        }
+        else if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            FilterBox.Focus();
+            FilterBox.SelectAll();
+        }
+        else if (e.Key == Key.I && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            OnOpenInventory(sender, new RoutedEventArgs());
+        }
+    }
+
+    private async void OnAttach(object sender, RoutedEventArgs e) => await _vm.AttachAndConnectAsync();
     private async void OnConnect(object sender, RoutedEventArgs e) => await _vm.ConnectAsync();
     private async void OnDisconnect(object sender, RoutedEventArgs e) => await _vm.DisconnectAsync();
     private async void OnLoadRoot(object sender, RoutedEventArgs e) => await _vm.LoadRootAsync();
@@ -183,20 +256,12 @@ public partial class MainWindow : Window
 
     private void OnEditProfiles(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            // v1: profiles are edited as JSON in %APPDATA%\LiveNBT\profiles.json
-            string dir = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LiveNBT");
-            System.IO.Directory.CreateDirectory(dir);
-            string file = System.IO.Path.Combine(dir, "profiles.json");
-            if (!System.IO.File.Exists(file))
-                System.IO.File.WriteAllText(file,
-                    """[{"Name":"Singleplayer","Host":"127.0.0.1","Port":25599,"Token":"PASTE-TOKEN-HERE"}]""");
-            System.Diagnostics.Process.Start("notepad.exe", file);
-            MessageBox.Show("Edit profiles.json, save, then click Profiles… again to reload.", "LiveNBT");
-            _vm.ReloadProfiles();
-        }
-        catch (Exception ex) { _vm.Status = $"profiles failed: {ex.Message}"; }
+        string? selectedName = _vm.SelectedProfile?.Name;
+        var dialog = new ProfilesWindow(_vm, _settings) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        try { _settingsStore.Save(_settings); } catch { /* saved again on exit */ }
+        // the dialog rebuilt the Profiles collection — restore a sensible selection
+        _vm.SelectedProfile = _vm.Profiles.FirstOrDefault(p => p.Name == selectedName)
+                              ?? _vm.Profiles.FirstOrDefault();
     }
 }

@@ -5,6 +5,7 @@ import net.bytebuddy.asm.Advice;
 import net.minecraft.server.MinecraftServer;
 
 import java.lang.instrument.Instrumentation;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static net.bytebuddy.matcher.ElementMatchers.named;
 
@@ -26,11 +27,31 @@ import static net.bytebuddy.matcher.ElementMatchers.named;
  */
 public final class LiveNbtAgent {
 
+    /** Install once, whether we arrive via {@code -javaagent} (premain) or Dynamic Attach (agentmain). */
+    private static final AtomicBoolean INSTALLED = new AtomicBoolean();
+
     private LiveNbtAgent() {}
 
+    /** {@code -javaagent} path: JVM start, target classes not yet loaded. */
     public static void premain(String args, Instrumentation inst) {
+        install(inst);
+    }
+
+    /**
+     * Dynamic Attach path: the app loads this agent into an already-running Minecraft (no JVM args).
+     * The matched classes are already loaded, so ByteBuddy RETRANSFORMS them — our advice only
+     * modifies method bodies ({@code @Advice.OnMethodEnter/Exit}), which is retransform-safe.
+     */
+    public static void agentmain(String args, Instrumentation inst) {
+        install(inst);
+    }
+
+    private static void install(Instrumentation inst) {
+        if (!INSTALLED.compareAndSet(false, true)) return;   // a second attach must not double-weave
         new AgentBuilder.Default()
                 .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
+                // weave failures are otherwise swallowed silently — surface them in the game log
+                .with(AgentBuilder.Listener.StreamWriting.toSystemError().withErrorsOnly())
                 .type(named("net.minecraft.server.MinecraftServer")
                         .or(named("net.minecraft.client.server.IntegratedServer"))
                         .or(named("net.minecraft.server.dedicated.DedicatedServer"))

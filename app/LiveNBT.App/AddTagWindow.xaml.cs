@@ -12,6 +12,7 @@ public partial class AddTagWindow : Window
     public AddTagWindow()
     {
         InitializeComponent();
+        WindowTheming.UseDarkTitleBar(this);
         foreach (NbtType type in Enum.GetValues<NbtType>())
             if (NbtTypes.IsScalar(type) || type == NbtType.Compound || type == NbtType.List)
                 TypeBox.Items.Add(type);

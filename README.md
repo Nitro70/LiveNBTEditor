@@ -9,7 +9,7 @@ LiveNBT is a two-part tool for **vanilla Minecraft Java 26.2**:
 
 Traditional NBT editors work on `.dat` files on disk, so you have to quit the world, edit, and reload. LiveNBT talks to the running server instead: when you change a value, the agent applies it to the live game object on the next server tick. Set `Health` and your hearts drop immediately; flip `weather.raining` and it starts raining; watch your `Pos` stream as you walk.
 
-It works on **26.2 specifically** because the 26.x client and server ship **unobfuscated** (official Mojang names). That means the agent can hook the game by its real class and method names — **no mappings, no Fabric/Forge, no mod loader of any kind.** You run stock vanilla Minecraft with one extra JVM flag.
+It works on **26.2 specifically** because the 26.x client and server ship **unobfuscated** (official Mojang names). That means the agent can hook the game by its real class and method names — **no mappings, no Fabric/Forge, no mod loader of any kind.** And with one click the app can load the agent into a **stock, already-running Minecraft** — no launch arguments at all (see below).
 
 > Works in singleplayer (the integrated server) and on dedicated servers you control.
 
@@ -57,14 +57,29 @@ It works on **26.2 specifically** because the 26.x client and server ship **unob
 
 ---
 
-## Install (recommended — via the installer)
+## Instant use — no install, no launch arguments (recommended)
+
+Just run stock vanilla Minecraft normally, then:
+
+1. Open a world.
+2. Run the LiveNBT app and click **⚡ Attach to Minecraft**.
+
+That's it. The app finds the running game and loads the agent into it live via the JVM's Dynamic
+Attach API — launched by **Minecraft's own bundled Java**, so nothing extra is required — then reads
+the access token and connects automatically. No `-javaagent` argument, no launcher edits, no installer.
+
+> How: the agent only rewrites method bodies, which the JVM allows on already-loaded classes
+> (retransformation). This is standard, supported instrumentation — not memory hacking.
+
+## Permanent install — auto `-javaagent` (optional)
+
+If you'd rather the agent load every launch (e.g. for a dedicated server, or to skip the Attach
+click):
 
 1. Download the **LiveNBT installer** from [**Releases**](../../releases/latest) and run it.
-2. Point it at your Minecraft launcher profile. The installer:
-   - drops `livenbt-agent.jar` into place, and
-   - **adds the `-javaagent` argument to that launcher profile's JVM arguments automatically** — you never edit JVM args by hand.
-3. Launch Minecraft with that profile and open a world.
-4. Run the desktop app, and **Connect** to `127.0.0.1:25599` using the token from `.minecraft/config/livenbt.json` (auto-created on first run).
+2. It drops `livenbt-agent.jar` into place and **adds the `-javaagent` argument to your Minecraft
+   launcher profile automatically** — you never edit JVM args by hand.
+3. Launch Minecraft, open a world, run the app, and **Connect**.
 
 ---
 

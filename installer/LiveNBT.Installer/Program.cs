@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -40,14 +41,15 @@ internal static class Program
         try
         {
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string installDir = Path.Combine(appData, "LiveNBT");
-            string jarPath = Path.Combine(installDir, AgentFileName);
+            string appDir = Path.Combine(appData, "LiveNBT");     // desktop app + its profiles
+            string agentDir = ChooseAgentDir(appDir);             // MUST be space-free (launcher arg splitting)
+            string jarPath = Path.Combine(agentDir, AgentFileName);
 
-            InstallAgentJar(installDir, jarPath);
-            string token = EnsureConfig(appData, out string mcDir);
+            InstallAgentJar(agentDir, jarPath);
+            (string token, int port) = EnsureConfig(appData, out string mcDir);
             int patched = PatchLauncherProfiles(mcDir, jarPath);
-            WriteAppProfile(installDir, token);
-            InstallApp(installDir);
+            WriteAppProfile(appDir, token, port);
+            InstallApp(appDir);
 
             Console.WriteLine();
             Console.WriteLine("Done — LiveNBT is installed.");
@@ -58,9 +60,9 @@ internal static class Program
             Console.WriteLine();
             if (patched == 0)
             {
-                Console.WriteLine("No Minecraft 26.x profile was found to wire up automatically. Add this to your");
-                Console.WriteLine("profile's JVM arguments by hand (Installations > Edit > More Options):");
-                Console.WriteLine($"  -javaagent:\"{jarPath}\" -Dnet.bytebuddy.experimental=true");
+                Console.WriteLine("No profile was wired automatically. Add this to your profile's JVM arguments by");
+                Console.WriteLine("hand (Installations > Edit > More Options):");
+                Console.WriteLine($"  -javaagent:{jarPath} -Dnet.bytebuddy.experimental=true");
             }
             else
             {
@@ -80,7 +82,29 @@ internal static class Program
         return 0;
     }
 
-    private static void InstallAgentJar(string installDir, string jarPath)
+    /// <summary>The vanilla launcher splits a profile's javaArgs on spaces with NO quote handling,
+    /// so the agent jar must live at a space-free path or the game will not start.</summary>
+    private static string ChooseAgentDir(string preferred)
+    {
+        if (!preferred.Contains(' ')) return preferred;
+        string fallback = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory) ?? @"C:\", "LiveNBT");
+        try
+        {
+            if (!_dryRun) Directory.CreateDirectory(fallback);
+            Console.WriteLine($"  ! \"{preferred}\" contains a space, which the Minecraft launcher can't pass to the JVM —");
+            Console.WriteLine($"    installing the agent to {fallback} instead");
+            return fallback;
+        }
+        catch
+        {
+            Console.WriteLine($"  ! WARNING: \"{preferred}\" contains a space and {fallback} is not writable.");
+            Console.WriteLine("    The launcher cannot pass a spaced -javaagent path — Minecraft will NOT start with");
+            Console.WriteLine("    this profile until you move the jar to a space-free folder and fix the JVM argument.");
+            return preferred;
+        }
+    }
+
+    private static void InstallAgentJar(string agentDir, string jarPath)
     {
         using Stream? s = Assembly.GetExecutingAssembly().GetManifestResourceStream(AgentResource);
         if (s is null)
@@ -90,43 +114,67 @@ internal static class Program
         }
         if (!_dryRun)
         {
-            Directory.CreateDirectory(installDir);
+            Directory.CreateDirectory(agentDir);
             using FileStream fs = File.Create(jarPath);
             s.CopyTo(fs);
         }
         Console.WriteLine($"  + agent jar -> {jarPath}");
     }
 
-    /// <summary>Reuses an existing config token if present, otherwise writes a fresh one. Returns the token.</summary>
-    private static string EnsureConfig(string appData, out string mcDir)
+    /// <summary>Reuses an existing config token (and port) when present; otherwise writes a fresh
+    /// token, preserving any custom bind/port it can still read. Returns the effective token+port.</summary>
+    private static (string Token, int Port) EnsureConfig(string appData, out string mcDir)
     {
         mcDir = Path.Combine(appData, ".minecraft");
         string configDir = Path.Combine(mcDir, "config");
         string cfg = Path.Combine(configDir, "livenbt.json");
 
+        string bind = "127.0.0.1";
+        int port = DefaultPort;
         if (File.Exists(cfg))
         {
             try
             {
-                string? existing = JsonNode.Parse(File.ReadAllText(cfg))?["token"]?.GetValue<string>();
-                if (!string.IsNullOrWhiteSpace(existing)) { Console.WriteLine("  = reusing existing config token"); return existing!; }
+                JsonNode? root = JsonNode.Parse(File.ReadAllText(cfg));
+                string? existingToken = root?["token"]?.GetValue<string>();
+                if (root?["port"] is JsonValue pv && pv.TryGetValue(out int p)) port = p;
+                if (root?["bind"] is JsonValue bv && bv.TryGetValue(out string? b) && !string.IsNullOrWhiteSpace(b)) bind = b!;
+                if (!string.IsNullOrWhiteSpace(existingToken))
+                {
+                    Console.WriteLine($"  = reusing existing config token (port {port})");
+                    return (existingToken!, port);
+                }
             }
-            catch { /* unreadable — fall through and rewrite */ }
+            catch { /* unreadable — fall through and rewrite, keeping defaults */ }
         }
 
         string token = RandomToken();
-        var obj = new JsonObject { ["bind"] = "127.0.0.1", ["port"] = DefaultPort, ["token"] = token };
+        var obj = new JsonObject { ["bind"] = bind, ["port"] = port, ["token"] = token };
         if (!_dryRun)
         {
             Directory.CreateDirectory(configDir);
             File.WriteAllText(cfg, obj.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
-        Console.WriteLine("  + wrote config with a fresh access token (bind 127.0.0.1)");
-        return token;
+        Console.WriteLine($"  + wrote config with a fresh access token (bind {bind}, port {port})");
+        return (token, port);
     }
 
-    /// <summary>Adds the -javaagent arg to every 26.x launcher profile that doesn't already have it.
-    /// Backs the file up first and preserves each profile's existing args. Returns the count patched.</summary>
+    /// <summary>26.x targeting: the id must START with 26. (or embed -26. for loader profiles), not
+    /// merely contain "26." (which false-matched e.g. loader 0.26.0). The launcher's stock profiles
+    /// carry the symbolic ids latest-release/latest-snapshot — currently 26.x, so wire those too.</summary>
+    private static bool IsTargetProfile(JsonObject profile)
+    {
+        string? type = profile["type"]?.GetValue<string>();
+        if (type is "latest-release" or "latest-snapshot") return true;
+        string? version = profile["lastVersionId"]?.GetValue<string>();
+        if (version is null) return false;
+        return version.StartsWith("26.", StringComparison.Ordinal)
+               || version.Contains("-26.", StringComparison.Ordinal);
+    }
+
+    /// <summary>Adds the -javaagent arg to every targeted launcher profile that doesn't already have
+    /// it. Refuses while the launcher is open (it would rewrite the file from memory and silently
+    /// undo the patch), backs up first, writes atomically, and preserves each profile's own args.</summary>
     private static int PatchLauncherProfiles(string mcDir, string jarPath)
     {
         string file = Path.Combine(mcDir, "launcher_profiles.json");
@@ -136,7 +184,16 @@ internal static class Program
             return 0;
         }
 
-        string agentArgs = $"-javaagent:\"{jarPath}\" -Dnet.bytebuddy.experimental=true";
+        if (Process.GetProcessesByName("MinecraftLauncher").Length > 0 ||
+            Process.GetProcessesByName("Minecraft Launcher").Length > 0 ||
+            Process.GetProcessesByName("Minecraft").Length > 0)
+        {
+            Console.WriteLine("  ! the Minecraft launcher is running — it would overwrite this change from memory.");
+            Console.WriteLine("    Close the launcher and run this installer again to wire the -javaagent argument.");
+            return 0;
+        }
+
+        string agentArgs = $"-javaagent:{jarPath} -Dnet.bytebuddy.experimental=true";
         JsonNode? root;
         try { root = JsonNode.Parse(File.ReadAllText(file)); }
         catch (Exception e) { Console.WriteLine("  ! launcher_profiles.json is unreadable, skipping: " + e.Message); return 0; }
@@ -146,48 +203,71 @@ internal static class Program
         int patched = 0;
         foreach ((string key, JsonNode? node) in profiles)
         {
-            if (node is not JsonObject profile) continue;
-            string? version = profile["lastVersionId"]?.GetValue<string>();
-            if (version is null || !version.Contains("26.")) continue;         // 26.x is the unobfuscated line this agent targets
+            if (node is not JsonObject profile || !IsTargetProfile(profile)) continue;
             string existing = profile["javaArgs"]?.GetValue<string>() ?? "";
-            if (existing.Contains(AgentFileName)) { continue; }                // already wired
+            if (existing.Contains(AgentFileName)) continue;                // already wired
             profile["javaArgs"] = existing.Length == 0 ? $"{DefaultJvmArgs} {agentArgs}" : $"{existing} {agentArgs}";
             patched++;
-            Console.WriteLine($"  + wired profile \"{profile["name"]?.GetValue<string>() ?? key}\" (version {version})");
+            string version = profile["lastVersionId"]?.GetValue<string>() ?? profile["type"]?.GetValue<string>() ?? "?";
+            string name = profile["name"]?.GetValue<string>() is { Length: > 0 } n ? n
+                : profile["type"]?.GetValue<string>() ?? key;   // stock profiles have an empty name
+            Console.WriteLine($"  + wired profile \"{name}\" (version {version})");
         }
 
         if (patched > 0 && !_dryRun)
         {
             string backup = file + ".livenbt-backup";
             if (!File.Exists(backup)) File.Copy(file, backup);
-            File.WriteAllText(file, root!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            // write-then-rename: a crash mid-write must never leave the launcher's file truncated
+            string tmp = file + ".livenbt-tmp";
+            File.WriteAllText(tmp, root!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(tmp, file, overwrite: true);
         }
         return patched;
     }
 
-    /// <summary>Seeds the desktop app's connection profile with the matching token (never clobbers an existing one).</summary>
-    private static void WriteAppProfile(string installDir, string token)
+    /// <summary>Seeds or UPDATES the desktop app's local connection profile so it always carries the
+    /// token/port the game config actually uses (a re-run after a .minecraft wipe used to leave the
+    /// app holding a stale token). Other profiles in the file are preserved untouched.</summary>
+    private static void WriteAppProfile(string appDir, string token, int port)
     {
-        string file = Path.Combine(installDir, "profiles.json");
-        if (File.Exists(file)) return;
-        var profiles = new JsonArray(new JsonObject
+        string file = Path.Combine(appDir, "profiles.json");
+        JsonArray profiles;
+        try
         {
-            ["Name"] = "Singleplayer", ["Host"] = "127.0.0.1", ["Port"] = DefaultPort, ["Token"] = token,
-        });
+            profiles = File.Exists(file) ? JsonNode.Parse(File.ReadAllText(file)) as JsonArray ?? [] : [];
+        }
+        catch
+        {
+            profiles = [];
+        }
+
+        JsonObject? local = profiles.OfType<JsonObject>().FirstOrDefault(p =>
+            p["Name"]?.GetValue<string>() == "Singleplayer" || p["Host"]?.GetValue<string>() == "127.0.0.1");
+        bool created = local is null;
+        if (local is null)
+        {
+            local = new JsonObject { ["Name"] = "Singleplayer" };
+            profiles.Add(local);
+        }
+        local["Host"] = "127.0.0.1";
+        local["Port"] = port;
+        local["Token"] = token;
+
         if (!_dryRun)
         {
-            Directory.CreateDirectory(installDir);
+            Directory.CreateDirectory(appDir);
             File.WriteAllText(file, profiles.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
-        Console.WriteLine("  + seeded the app's connection profile");
+        Console.WriteLine(created ? "  + seeded the app's connection profile" : "  + updated the app's connection profile (token/port)");
     }
 
     /// <summary>If the release shipped the desktop app in ".\app" beside this exe, copy it in and make a shortcut.</summary>
-    private static void InstallApp(string installDir)
+    private static void InstallApp(string appDir)
     {
         string src = Path.Combine(AppContext.BaseDirectory, "app");
         if (!Directory.Exists(src)) { Console.WriteLine("  = desktop app not bundled beside the installer — download it separately"); return; }
-        string dst = Path.Combine(installDir, "app");
+        string dst = Path.Combine(appDir, "app");
         if (!_dryRun) CopyDirectory(src, dst);
         Console.WriteLine($"  + installed the desktop app -> {dst}");
 
