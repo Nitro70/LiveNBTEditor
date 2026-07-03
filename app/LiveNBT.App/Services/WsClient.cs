@@ -55,7 +55,9 @@ public sealed class WsClient : IAsyncDisposable
             {
                 _socket = new ClientWebSocket();
                 _cts = new CancellationTokenSource();
-                await _socket.ConnectAsync(new Uri($"ws://{host}:{port}/"), ct);
+                // a raw IPv6 literal must be bracketed in a URI authority (ws://[::1]:25599/)
+                string authority = host.Contains(':') && !host.StartsWith('[') ? $"[{host}]" : host;
+                await _socket.ConnectAsync(new Uri($"ws://{authority}:{port}/"), ct);
                 _receiveLoop = Task.Run(() => ReceiveLoopAsync(_socket, router, _cts.Token), CancellationToken.None);
 
                 await helloTcs.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);

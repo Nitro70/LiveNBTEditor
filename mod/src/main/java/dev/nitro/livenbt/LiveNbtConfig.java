@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 
@@ -36,6 +37,14 @@ public record LiveNbtConfig(String bind, int port, String token) {
             new SecureRandom().nextBytes(raw);
             LiveNbtConfig cfg = new LiveNbtConfig("127.0.0.1", 25599, HexFormat.of().formatHex(raw));
             if (file.getParent() != null) Files.createDirectories(file.getParent());
+            try {
+                // the file holds the auth token: owner-only on POSIX (multi-user Linux server boxes).
+                // Created with the attribute (not chmod-after-write) so there is no readable window.
+                Files.createFile(file, PosixFilePermissions.asFileAttribute(
+                        PosixFilePermissions.fromString("rw-------")));
+            } catch (UnsupportedOperationException ignored) {
+                // non-POSIX store (Windows) — default ACLs are fine
+            }
             Files.writeString(file, GSON.toJson(cfg));
             return cfg;
         } catch (IOException e) {

@@ -52,7 +52,7 @@ It works on **26.2 specifically** because the 26.x client and server ship **unob
 ## Requirements
 
 - **Minecraft Java 26.2**, vanilla (no mod loader). LiveNBT relies on 26.x being unobfuscated; other versions are not supported.
-- **Windows** — for the desktop editor app.
+- **Windows** — for the desktop editor app. The **agent is plain Java** and runs anywhere the game does, including Linux dedicated servers.
 - To build from source: **Java 21+** (agent) and the **.NET SDK** (app).
 
 ---
@@ -98,6 +98,53 @@ If you'd rather wire it up yourself:
 
 ---
 
+## Dedicated server (Linux)
+
+The **same agent jar** runs inside a dedicated server — the app then shows **every online player**
+(and their inventories) plus all world data, and connects to the server box by IP. Nothing here is
+Windows-specific: the agent is plain Java.
+
+On the server box:
+
+1. Put `livenbt-agent.jar` next to `server.jar` and add the agent to your start command:
+   ```sh
+   java -javaagent:livenbt-agent.jar -Dnet.bytebuddy.experimental=true -jar server.jar nogui
+   ```
+2. Start the server once. The agent creates **`config/livenbt.json`** (relative to the server's
+   working directory) and logs its location and the listen address. Open it, note the `token`, and
+   set `"bind"` to the server's **LAN IP** so remote editors are allowed in:
+   ```json
+   { "bind": "<server LAN IP, e.g. 192.168.1.50>", "port": 25599, "token": "<32 hex chars>" }
+   ```
+   (`"0.0.0.0"` binds **every** interface — including a public one on a VPS. Only use it behind a
+   firewall.)
+3. Restart the server. **If the box is reachable from the internet, this step is not optional:**
+   either scope a firewall rule to your LAN
+   (`sudo ufw allow from 192.168.0.0/16 to any port 25599 proto tcp`), or — better on any box with
+   a public IP — keep `"bind": "127.0.0.1"` and use the SSH tunnel from the security note below.
+
+In the app (on your PC): **Profiles… → Add**, set **Host** to the server's IP, port `25599`, and
+paste the `token` — then **Connect**. The roots dropdown lists `player:<name>` for everyone online
+and `world:` for every dimension.
+
+Notes:
+
+- **Attach instead of `-javaagent`** also works on Linux if the server is already running
+  (`java -cp livenbt-agent.jar dev.nitro.livenbt.attach.SelfAttach <pid> /abs/path/livenbt-agent.jar`),
+  but it needs a full JDK, the same user as the server process, and survives only until the next
+  restart — prefer the `-javaagent` line.
+- **Empty servers are fine** — even when `pause-when-empty-seconds` has paused the world, 26.2 still
+  invokes the tick entry point, so queued edits keep applying with nobody online. (Edits made while
+  paused live in memory until the next save — autosaves resume once a player joins, and a server
+  stop always saves.)
+- **systemd**: the config path follows the process working directory, so set `WorkingDirectory=` to
+  the server folder (or pin it with `-Dlivenbt.config=/path/to/livenbt.json`).
+- **Security**: the socket is plain `ws://` and token-authenticated — treat it as LAN-only. Prefer a
+  scoped firewall rule; on an untrusted network keep `bind` at `127.0.0.1` and tunnel instead:
+  `ssh -L 25599:127.0.0.1:25599 user@server`, then connect the app to `127.0.0.1`.
+
+---
+
 ## Usage
 
 1. **Connect** to your world/server (`127.0.0.1:25599` by default) with your token.
@@ -132,7 +179,7 @@ Config lives at **`.minecraft/config/livenbt.json`** and is **auto-created on fi
 
 - `bind` — loopback (`127.0.0.1`) by default. Set `0.0.0.0` only for LAN/remote use on a network you trust.
 - `port` — WebSocket port (default `25599`).
-- `token` — 32 random hex chars, generated on first run. **Treat it like a password** — anyone with the token and network access to the port can edit your world. Token comparison is constant-time.
+- `token` — 32 random hex chars, generated on first run. **Treat it like a password** — anyone with the token and network access to the port can edit your world. Token comparison is constant-time, and on Linux the file is created owner-only (`0600`).
 
 ---
 

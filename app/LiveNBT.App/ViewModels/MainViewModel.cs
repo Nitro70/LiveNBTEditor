@@ -101,6 +101,9 @@ public sealed class MainViewModel : ViewModelBase, IServerSession
     public void SaveProfiles() => _profileStore.Save(Profiles.ToList());
 
     private bool _connectBusy;
+    /// <summary>host:port of the last successful connect — a switch to a DIFFERENT server must not
+    /// keep showing (and silently re-polling) the previous server's tree.</summary>
+    private string? _connectedEndpoint;
 
     public async Task ConnectAsync(bool silentRetry = false)
     {
@@ -112,13 +115,23 @@ public sealed class MainViewModel : ViewModelBase, IServerSession
         {
             Status = $"Connecting to {p.Host}:{p.Port}…";
             await _client.ConnectAsync(p.Host, p.Port, p.Token);
+            string endpoint = $"{p.Host}:{p.Port}";
+            if (_connectedEndpoint is not null && _connectedEndpoint != endpoint)
+            {
+                TreeRoot = null;   // different server: drop the old tree (reconnects to the SAME one keep it)
+                Roots.Clear();
+            }
+            _connectedEndpoint = endpoint;
             Watches.Clear();
             IsConnected = true;
             Status = $"Connected to {p.Host}:{p.Port}";
             await RefreshRootsAsync();
             await LoadRegistryAsync();
-            // one less click: show the selected root (the first player by default) right away
-            if (TreeRoot is null && SelectedRoot is not null) await LoadRootAsync();
+            // one less click in singleplayer: auto-open the lone player right away. On a
+            // multi-player (dedicated) server, don't load someone arbitrary — let the user pick.
+            int playerCount = Roots.Count(r => r.StartsWith("player:"));
+            if (TreeRoot is null && SelectedRoot is not null && playerCount <= 1) await LoadRootAsync();
+            else if (TreeRoot is null && playerCount > 1) Status = $"Connected — {playerCount} players online, pick one and Load";
         }
         catch (Exception e)
         {
@@ -160,7 +173,9 @@ public sealed class MainViewModel : ViewModelBase, IServerSession
             if (i > 0) await Task.Delay(500);
             await ConnectAsync(silentRetry: i > 0);
         }
-        if (IsConnected) Status = "Attached and connected — no launch arguments needed.";
+        // don't clobber ConnectAsync's "N players online, pick one and Load" guidance (LAN worlds)
+        bool awaitingPick = TreeRoot is null && Roots.Count(r => r.StartsWith("player:")) > 1;
+        if (IsConnected && !awaitingPick) Status = "Attached and connected — no launch arguments needed.";
     }
 
     public async Task DisconnectAsync()

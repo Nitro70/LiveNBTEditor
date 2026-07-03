@@ -115,6 +115,16 @@ public partial class ProfilesWindow : Window
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
+        // a typo'd port used to silently save as 25599 — surface it instead
+        foreach (var p in _profiles)
+        {
+            if (!int.TryParse(p.Port, out int port) || port is < 1 or > 65535)
+            {
+                ProfileList.SelectedItem = p;
+                DetectStatus.Text = $"Profile \"{p.Name}\": the port must be a number from 1 to 65535.";
+                return;
+            }
+        }
         _vm.Profiles.Clear();
         foreach (var p in _profiles) _vm.Profiles.Add(p.ToProfile());
         _vm.SaveProfiles();

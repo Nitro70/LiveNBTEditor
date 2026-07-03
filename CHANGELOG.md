@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.3.0
+
+The dedicated-server release: run the same agent inside a **Linux dedicated server** and edit it
+remotely from the Windows app.
+
+### Added
+- **Dedicated server support (Linux)** — load `livenbt-agent.jar` into a vanilla dedicated server
+  with `-javaagent` (or dynamic attach); the app connects by IP and lists **every online player**
+  and world. Full setup guide in the README, including firewall/SSH-tunnel guidance and systemd
+  working-directory notes.
+- The agent logs its config file location on startup, with a hint when it's bound to loopback only —
+  server operators can find the token and `bind` setting without hunting.
+- Remote-server hint in the Profiles dialog.
+
+### Fixed
+- **Tick hook fired twice per tick on dedicated servers** (and on unpaused singleplayer): the advice
+  was woven into both `MinecraftServer` and its subclass overrides, which call `super`. It is now
+  woven only where each method actually needs it (tick → the two concrete overrides, stop → the base
+  class), verified against the 26.2 client and server jars.
+- IPv6 hosts (e.g. `::1`) are now bracketed correctly in the WebSocket URL.
+- On servers with multiple players online, connect no longer auto-loads an arbitrary player's NBT —
+  the status bar shows the online count and lets you pick.
+- A non-numeric port in the Profiles dialog is rejected with a message instead of silently saving
+  as 25599.
+
 ## v0.2.0
 
 The standalone, no-setup release.

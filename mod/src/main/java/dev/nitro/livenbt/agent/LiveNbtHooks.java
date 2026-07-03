@@ -42,7 +42,15 @@ public final class LiveNbtHooks {
     public static synchronized void onServerStarted(MinecraftServer server) {
         try {
             stopWs(0);   // defensive: never leak a prior server
-            LiveNbtConfig cfg = LiveNbtConfig.loadOrCreate(configFile());
+            Path cfgFile = configFile();
+            LiveNbtConfig cfg = LiveNbtConfig.loadOrCreate(cfgFile);
+            // point server operators at the token/bind file; hint how to allow remote editors
+            LOG.info("LiveNBT config: {}{}", cfgFile.toAbsolutePath(),
+                    isLoopback(cfg.bind())
+                            ? " — loopback only; to allow remote editors set \"bind\" to this machine's LAN IP"
+                              + " (\"0.0.0.0\" = EVERY interface — firewall it). Plain ws:// with token auth:"
+                              + " keep this port off the public internet"
+                            : "");
             registry = new RootRegistry(server);
             // Prime the snapshots on the server thread before the socket accepts anyone, so the very
             // first roots/registry request already has real data. Registries are frozen after world
@@ -56,8 +64,11 @@ public final class LiveNbtHooks {
         }
     }
 
-    /** Start of a server tick: on the first tick start LiveNBT, then drain ops + periodically sample watches. */
-    public static void onServerTick(MinecraftServer server) {
+    /** Start of a server tick: on the first tick start LiveNBT, then drain ops + periodically sample watches.
+     * Object-typed: called through {@code LiveNbtBoot} method handles, whose bootstrap-loaded
+     * signatures cannot mention Minecraft classes. */
+    public static void onServerTick(Object serverObj) {
+        MinecraftServer server = (MinecraftServer) serverObj;
         if (started.compareAndSet(false, true)) {
             onServerStarted(server);
         }
@@ -72,8 +83,9 @@ public final class LiveNbtHooks {
         }
     }
 
-    /** Server is stopping (worlds still valid). Stops the WebSocket server and re-arms start for the next world. */
-    public static synchronized void onServerStopping(MinecraftServer server) {
+    /** Server is stopping (worlds still valid). Stops the WebSocket server and re-arms start for the next world.
+     * Object-typed for the {@code LiveNbtBoot} method-handle bridge (see {@link #onServerTick}). */
+    public static synchronized void onServerStopping(Object server) {
         stopWs(1000);
         // run stragglers (queued edits + the watch removals stopWs just enqueued) while this world's
         // server is still valid — nothing may survive the reload and execute against the next world
@@ -102,6 +114,10 @@ public final class LiveNbtHooks {
             }
             ws = null;
         }
+    }
+
+    private static boolean isLoopback(String bind) {
+        return "127.0.0.1".equals(bind) || "localhost".equalsIgnoreCase(bind) || "::1".equals(bind);
     }
 
     /** {@code -Dlivenbt.config=<path>} override, else {@code <gamedir>/config/livenbt.json} (user.dir). */
