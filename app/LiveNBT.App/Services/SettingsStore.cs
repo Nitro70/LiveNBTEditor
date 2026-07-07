@@ -14,6 +14,12 @@ public sealed class AppSettings
     public double WindowLeft { get; set; } = double.NaN;
     public double WindowTop { get; set; } = double.NaN;
     public bool WindowMaximized { get; set; }
+    /// <summary>Tree zoom (Ctrl+wheel); 0 = never changed, keep the theme default.</summary>
+    public double TreeFontSize { get; set; }
+    // last deep-find query, restored when the Find window reopens
+    public string FindName { get; set; } = "";
+    public string FindValue { get; set; } = "";
+    public bool FindRegex { get; set; }
 }
 
 /// <summary>%APPDATA%\LiveNBT\settings.json, same defensive load/save pattern as ProfileStore.</summary>

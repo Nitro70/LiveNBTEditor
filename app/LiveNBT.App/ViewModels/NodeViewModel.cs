@@ -9,6 +9,7 @@ public sealed class NodeViewModel : ViewModelBase
     private NbtNode _node;
     private bool _isExpanded;
     private bool _isEditing;
+    private bool _isSelected;
     private bool _conflictHint;
     private string _flash = "";   // "" | "ok" | "error"
     private bool _materialized;
@@ -20,6 +21,7 @@ public sealed class NodeViewModel : ViewModelBase
         Root = root;
         Path = path;
         Name = name;
+        Parent = parent;
         _node = node;
         Children = NbtTypes.IsScalar(node.Type) ? null : new ObservableCollection<NodeViewModel>();
         // WPF only renders an expander arrow when Children is non-empty, so a non-empty
@@ -33,10 +35,55 @@ public sealed class NodeViewModel : ViewModelBase
     public string Root { get; }
     public string Path { get; }
     public string Name { get; }
+    public NodeViewModel? Parent { get; }
     public NbtType Type => _node.Type;
     public NbtNode Node => _node;
     public ObservableCollection<NodeViewModel>? Children { get; }
     public bool CanEdit => NbtTypes.IsScalar(_node.Type);
+
+    // ----- capability flags for the context menu / hotkeys (protocol rules baked in:
+    // world: roots are a virtual tree with no add/delete; inventory: has no add) -----
+    private bool IsPlaceholder => Name == "…";
+    private bool IsPlayerRoot => Root.StartsWith("player:", StringComparison.Ordinal);
+    private bool IsInventoryRoot => Root.StartsWith("inventory:", StringComparison.Ordinal);
+    private bool IsWholeSlot => IsInventoryRoot && Parent is { Path.Length: 0 };
+
+    /// <summary>Structural container that accepts new children (add/paste/quick-add).</summary>
+    public bool CanAddChild => !IsPlaceholder && IsPlayerRoot && _node.Type is NbtType.Compound or NbtType.List;
+    public bool CanDelete => !IsPlaceholder && Path.Length > 0 && (IsPlayerRoot || IsWholeSlot);
+    public bool CanDuplicate => !IsPlaceholder && IsPlayerRoot &&
+        Parent is { } p && p.Type is NbtType.Compound or NbtType.List;
+    public bool CanRename => !IsPlaceholder && IsPlayerRoot && Parent?.Type == NbtType.Compound;
+    /// <summary>List/array element that can be reordered (rewrites the parent container via set).</summary>
+    public bool CanMove => !IsPlaceholder && IsPlayerRoot &&
+        Parent?.Type is NbtType.List or NbtType.ByteArray or NbtType.IntArray or NbtType.LongArray;
+    /// <summary>Whole-subtree SNBT editing: player paths anywhere; elsewhere only where set works
+    /// (scalars on world roots, whole slots on inventory roots).</summary>
+    public bool CanEditSnbt => !IsPlaceholder && Path.Length > 0 && (IsPlayerRoot || CanEdit || IsWholeSlot);
+
+    public int IndexInParent => Parent?.Children?.IndexOf(this) ?? -1;
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => Set(ref _isSelected, value);
+    }
+
+    /// <summary>Hover detail: full text for long/multiline strings, an element preview for arrays.</summary>
+    public string? ToolTipText
+    {
+        get
+        {
+            if (_node.Type == NbtType.String && _node.Scalar is { } s && (s.Length > 100 || s.Contains('\n')))
+                return s.Length > 2000 ? s[..2000] + " …" : s;
+            if (_node.Type is NbtType.ByteArray or NbtType.IntArray or NbtType.LongArray && _node.Items is { Count: > 0 } items)
+            {
+                var preview = string.Join(", ", items.Take(24).Select(i => i.Scalar));
+                return items.Count > 24 ? $"[{preview}, … {items.Count} total]" : $"[{preview}]";
+            }
+            return null;
+        }
+    }
 
     public string TypeGlyph => _node.Type switch
     {
@@ -89,6 +136,16 @@ public sealed class NodeViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Expand without firing the per-node refresh callback — used by bulk expand-all,
+    /// where one request per node would be a storm (the 2 s whole-root poll keeps data fresh).</summary>
+    public void ExpandSilently()
+    {
+        if (Children is null || _isExpanded) return;
+        _isExpanded = true;
+        Materialize();
+        Raise(nameof(IsExpanded));
+    }
+
     private void Materialize()
     {
         if (_materialized || Children is null) return;
@@ -118,6 +175,9 @@ public sealed class NodeViewModel : ViewModelBase
         Raise(nameof(ValueText));
         Raise(nameof(TypeGlyph));
         Raise(nameof(CanEdit));
+        Raise(nameof(ToolTipText));
+        Raise(nameof(CanAddChild));
+        Raise(nameof(CanEditSnbt));
         if (Children is null) return;
         if (!_materialized)
         {

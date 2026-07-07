@@ -154,8 +154,31 @@ Notes:
    - an inventory — `inventory:<name>`
 3. **Edit** a value by double-clicking it, typing, and pressing **Enter** — it applies instantly in-game (accepted values flash; rejected ones show a reason in the status bar).
 4. **Watch** a value from its right-click menu — it appears in the Watches panel and updates live.
-5. Right-click also offers **Add tag**, **Delete**, **Copy path**, and **Copy as SNBT**.
+5. Right-click for the full editing menu: **Edit as SNBT**, **Add tag / Quick add / Add as SNBT**, **Paste**, **Duplicate**, **Rename**, **Move up/down**, **Cut / Copy**, **Delete**. Items grey out where the game doesn't support the operation (world roots are structurally read-only; inventories edit per slot).
 6. In the **inventory** view, use the searchable item and enchantment pickers to build a slot from the bundled 26.2 registry, then apply.
+
+### Keyboard shortcuts
+
+| Keys | Action |
+|---|---|
+| `Enter` / `Ctrl+E` | Edit the selected value inline |
+| `Ctrl+Shift+E` | Edit the selected tag as SNBT (multiline, whole subtree) |
+| `F2` | Rename a compound key |
+| `Del` | Delete (selection moves to the next sibling) |
+| `Ctrl+C` / `Ctrl+Shift+C` | Copy as SNBT / copy path |
+| `Ctrl+X` / `Ctrl+V` | Cut / paste SNBT (NBT Studio clipboard round-trips) |
+| `Ctrl+D` | Duplicate (auto-named) |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo your edits (live: restores your pre-edit snapshot) |
+| `Alt+Up` / `Alt+Down` | Move a list element |
+| `Space` / `Ctrl+Space` | Expand-collapse / expand-all under the selection |
+| `Ctrl+Up` | Jump to parent |
+| `Ctrl+F` / `Ctrl+Shift+F` | Filter top-level tags / deep find (names + values, regex) |
+| `F5` | Refresh from the game |
+| `Ctrl+I` | Inventory editor |
+| `Ctrl+mouse wheel` | Zoom the tree |
+| `F1` | In-app help (this table + a usage guide) |
+
+Tree-editing keys act on the selected row while the tree has focus; typing in a text box is never intercepted.
 
 What you can edit:
 

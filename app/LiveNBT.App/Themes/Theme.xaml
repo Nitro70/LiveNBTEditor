@@ -35,6 +35,12 @@
     <SolidColorBrush x:Key="FlashOkBrush" Color="#552D6CC4"/>
     <SolidColorBrush x:Key="FlashErrorBrush" Color="#66B9C2CE"/>
 
+    <!-- NBT type-chip tints (tree rows): numeric=blue, string=green, container=amber, array=purple -->
+    <SolidColorBrush x:Key="ChipNumericBrush" Color="#FF2C4A6E"/>
+    <SolidColorBrush x:Key="ChipStringBrush" Color="#FF2E5B41"/>
+    <SolidColorBrush x:Key="ChipContainerBrush" Color="#FF6E5A2C"/>
+    <SolidColorBrush x:Key="ChipArrayBrush" Color="#FF55406E"/>
+
     <!-- text selection everywhere (TextBox/TreeView fallbacks) -->
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="{StaticResource AccentSoftCol}"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="{StaticResource TextPrimaryCol}"/>
@@ -426,7 +432,36 @@
         </Setter>
     </Style>
 
-    <!-- context-menu items only (no submenus in this app) -->
+    <!-- submenu-header items (e.g. "Quick add ▸") get an arrow + right-side popup -->
+    <ControlTemplate x:Key="SubmenuHeaderTemplate" TargetType="MenuItem">
+        <Border x:Name="Bd" Background="Transparent" CornerRadius="3" Padding="10,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"
+                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
+                <TextBlock Grid.Column="1" Text="▸" Margin="12,0,0,0"
+                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                <Popup x:Name="PART_Popup" Placement="Right" HorizontalOffset="2" VerticalOffset="-6"
+                       IsOpen="{TemplateBinding IsSubmenuOpen}" AllowsTransparency="True" Focusable="False">
+                    <Border Background="{StaticResource Bg1Brush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="5" Padding="4">
+                        <ItemsPresenter/>
+                    </Border>
+                </Popup>
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg3Brush}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource TextDisabledBrush}"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
     <Style TargetType="MenuItem">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="Template">
@@ -447,6 +482,11 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <Trigger Property="Role" Value="SubmenuHeader">
+                <Setter Property="Template" Value="{StaticResource SubmenuHeaderTemplate}"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style TargetType="Separator">

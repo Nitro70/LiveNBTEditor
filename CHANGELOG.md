@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.4.0
+
+The ease-of-use release: the editing workflow from NBT Studio, adapted for live editing.
+Everything is additive — existing flows are untouched — and everything works against the running
+game (no files, no saving). App-only — the agent is unchanged from v0.3.0, so dedicated-server
+operators don't need to redeploy.
+
+### Added
+- **Keyboard-first editing** (tree must have focus): `Enter`/`Ctrl+E` edit value, `F2` rename,
+  `Del` delete (selection stays near the hole), `Space` expand/collapse, `Ctrl+Space` expand-all
+  (capped), `Ctrl+Up` jump to parent, `Alt+Up`/`Alt+Down` reorder list elements.
+- **Clipboard**: `Ctrl+C` copy as SNBT (`name:value` for compound keys — round-trips with
+  NBT Studio), `Ctrl+Shift+C` copy path, `Ctrl+X` cut, `Ctrl+V` paste SNBT — single tags,
+  pretty-printed subtrees, or one-tag-per-line batches; name collisions auto-rename.
+- **Undo / Redo** — `Ctrl+Z` / `Ctrl+Shift+Z` (or `Ctrl+Y`) for every edit made in the app
+  (set, add, delete, paste, duplicate, rename, reorder). Live-editor semantics: undo restores
+  your pre-edit snapshot; if the game changed the value meanwhile, the snapshot still wins.
+- **Duplicate** (`Ctrl+D`) with automatic `Name1`, `Name2`… naming.
+- **Edit as SNBT** (`Ctrl+Shift+E`) — whole-subtree text editing in a multiline dialog
+  (also the way to edit multiline strings); type-checked so a set can't change a tag's type.
+  Plus **Add as SNBT** on containers.
+- **Deep Find** (`Ctrl+Shift+F`) — search names and values across the whole loaded tree
+  (substring or regex), Find Next/Prev wraps, Find All lists results; click to jump. The old
+  `Ctrl+F` top-level filter is unchanged.
+- **Quick add** submenu — insert a typed tag with an automatic name in one click, no dialog.
+- **Byte/Int/Long arrays** can now be created in the Add Tag dialog (optionally comma-seeded).
+- **Colored type chips** (numeric/string/container/array) and hover tooltips for long strings
+  and array previews.
+- **Ctrl+mouse-wheel tree zoom**, persisted across runs.
+- Watches panel: **✕ to unwatch**, **double-click to jump** to the tag in the tree.
+- **In-app Help** (`F1` or the ❔ Help button) — how to connect, how editing works, and the full
+  shortcut reference without leaving the app.
+- Context menu items grey out when the server would reject the operation (world roots are
+  structurally read-only, inventories don't support add, only compound keys rename).
+
+### Changed
+- Adding or deleting tags now refreshes just the affected branch — the tree no longer collapses
+  after structural edits; expansion, selection and scroll survive.
+- "Copy as SNBT" on a compound key now prefixes the key name (`Health:20.0f`) so pastes into
+  NBT Studio and LiveNBT land with the right name.
+
 ## v0.3.0
 
 The dedicated-server release: run the same agent inside a **Linux dedicated server** and edit it

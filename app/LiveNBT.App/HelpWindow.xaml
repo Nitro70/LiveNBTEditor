@@ -1,0 +1,107 @@
+<Window x:Class="LiveNBT.App.HelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LiveNBT Help" Height="820" Width="700" MinHeight="320" MinWidth="440"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Bg0Brush}" Foreground="{StaticResource TextPrimaryBrush}"
+        PreviewKeyDown="OnWindowKeyDown">
+    <Window.Resources>
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Margin" Value="0,18,0,6"/>
+        </Style>
+        <Style x:Key="Body" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="LineHeight" Value="19"/>
+        </Style>
+    </Window.Resources>
+
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" Focusable="True">
+        <StackPanel Margin="20,6,20,20" MaxWidth="660">
+
+            <TextBlock Style="{StaticResource SectionHeader}" Text="Getting connected"/>
+            <TextBlock Style="{StaticResource Body}">
+                <Bold>⚡ Attach to Minecraft</Bold> hooks the game already running on this PC — no setup, no launch
+                arguments. For a dedicated server, pick a <Bold>profile</Bold> (host, port and token from the server's
+                <Run FontFamily="Consolas">config/livenbt.json</Run>) and click <Bold>Connect</Bold>.
+                Then choose what to edit in the dropdown — a player, a world, or a player's inventory — and click <Bold>Load</Bold>.
+            </TextBlock>
+
+            <TextBlock Style="{StaticResource SectionHeader}" Text="Editing values"/>
+            <TextBlock Style="{StaticResource Body}">
+                Double-click a value (or select it and press <Bold>Enter</Bold>) to edit it in place; <Bold>Enter</Bold> applies it
+                to the running game instantly — a blue flash means accepted, a grey flash plus a status-bar message means
+                the game rejected it. <Bold>Esc</Bold> cancels. Containers (<Run FontFamily="Consolas">{}</Run> and
+                <Run FontFamily="Consolas">[]</Run>) hold other tags — right-click them to add things. There are no files
+                and no saving: the game owns the data, this app edits it live.
+            </TextBlock>
+
+            <TextBlock Style="{StaticResource SectionHeader}" Text="The right-click menu"/>
+            <TextBlock Style="{StaticResource Body}">
+                Everything lives on right-click: <Bold>Edit value</Bold>, <Bold>Edit as SNBT</Bold> (the whole tag as text —
+                also how you edit multiline strings), <Bold>Watch</Bold>, <Bold>Add tag</Bold>, <Bold>Quick add</Bold>
+                (one click, auto-named, no dialog), <Bold>Add as SNBT</Bold>, <Bold>Paste</Bold>, <Bold>Duplicate</Bold>,
+                <Bold>Rename</Bold>, <Bold>Move up/down</Bold>, <Bold>Cut / Copy</Bold> and <Bold>Delete</Bold>.
+                Greyed-out items are operations the game doesn't allow in that spot — world data has a fixed structure,
+                and inventories are edited per slot.
+            </TextBlock>
+
+            <TextBlock Style="{StaticResource SectionHeader}" Text="Keyboard shortcuts"/>
+            <TextBlock Style="{StaticResource Body}" Margin="0,0,0,8"
+                       Text="Tree shortcuts act on the selected row while the tree has focus (click a row first). Typing in any text box is never intercepted."/>
+            <ItemsControl x:Name="HotkeyList" Grid.IsSharedSizeScope="True">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Keys"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Background="{StaticResource Bg2Brush}" CornerRadius="3" Padding="7,2"
+                                    Margin="0,0,12,0" VerticalAlignment="Top" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding Keys}" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="{Binding What}" TextWrapping="Wrap"
+                                       VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Style="{StaticResource SectionHeader}" Text="Finding things"/>
+            <TextBlock Style="{StaticResource Body}">
+                <Bold>Ctrl+F</Bold> filters the top-level branches by name — quick orientation.
+                <Bold>Ctrl+Shift+F</Bold> opens <Bold>deep find</Bold>: it searches every name and value in the loaded
+                tree (regex optional), <Bold>Enter</Bold> jumps hit to hit, and <Bold>Find All</Bold> lists everything —
+                click a result to jump straight to it.
+            </TextBlock>
+
+            <TextBlock Style="{StaticResource SectionHeader}" Text="Watches"/>
+            <TextBlock Style="{StaticResource Body}">
+                Right-click a tag → <Bold>Watch</Bold> pins it to the panel on the right, updating live several times a
+                second — handy while testing. <Bold>✕</Bold> removes a watch; <Bold>double-click</Bold> one to jump to
+                that tag in the tree.
+            </TextBlock>
+
+            <TextBlock Style="{StaticResource SectionHeader}" Text="Undo"/>
+            <TextBlock Style="{StaticResource Body}">
+                <Bold>Ctrl+Z</Bold> undoes edits made in this app; <Bold>Ctrl+Shift+Z</Bold> (or <Bold>Ctrl+Y</Bold>) redoes.
+                Because this is a live editor, undo restores the value <Italic>as it was right before your edit</Italic> —
+                if the game changed it in the meantime, your snapshot still wins. A paste or rename undoes as one step.
+            </TextBlock>
+
+            <TextBlock Style="{StaticResource SectionHeader}" Text="Good to know"/>
+            <TextBlock Style="{StaticResource Body}">
+                • <Bold>Ctrl+mouse wheel</Bold> zooms the tree, and the size is remembered.<LineBreak/>
+                • Copied tags use standard SNBT — they paste straight into NBT Studio and back.<LineBreak/>
+                • The tree re-syncs with the game every 2 seconds, so outside changes show up on their own.<LineBreak/>
+                • In singleplayer the game keeps running while you edit (no pause) as long as the editor is connected.
+            </TextBlock>
+
+        </StackPanel>
+    </ScrollViewer>
+</Window>

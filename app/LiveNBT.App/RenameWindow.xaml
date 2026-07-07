@@ -1,0 +1,22 @@
+<Window x:Class="LiveNBT.App.RenameWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Rename Tag" Height="150" Width="360" WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Bg0Brush}" Foreground="{StaticResource TextPrimaryBrush}"
+        ResizeMode="NoResize">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBox x:Name="NameBox"/>
+        <TextBlock x:Name="ErrorText" Grid.Row="1" Margin="0,6,0,0" TextWrapping="Wrap"
+                   Foreground="#FFE08C8C" Visibility="Collapsed"/>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <Button Content="Rename" Width="80" Margin="0,0,8,0" Click="OnRename" IsDefault="True"/>
+            <Button Content="Cancel" Width="70" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
