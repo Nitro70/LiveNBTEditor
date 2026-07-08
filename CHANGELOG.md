@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.1
+
+Bug fix for the live refresh. App-only; agent unchanged from v0.3.0.
+
+### Fixed
+- The 2-second live refresh no longer collapses an expanded compound (an inventory item,
+  `components`, attributes, etc.) when the game re-serializes it with reordered or newly-added
+  keys. Compound children are now matched by name rather than position, so the tree updates in
+  place and keeps your expansion and selection.
+
 ## v0.4.0
 
 The ease-of-use release: the editing workflow from NBT Studio, adapted for live editing.

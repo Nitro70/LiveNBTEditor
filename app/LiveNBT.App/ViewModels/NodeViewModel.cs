@@ -195,31 +195,38 @@ public sealed class NodeViewModel : ViewModelBase
         new(Root, Path + "\0placeholder", new NbtNode(NbtType.String), this, "…");
 
     /// <summary>Reconcile materialized child VMs against _node: update survivors in place
-    /// (recursing), append new entries, trim removed ones. Compounds match by name+position,
-    /// lists/arrays by index.</summary>
+    /// (recursing), add new entries, drop removed ones, and reorder to match. Compounds match by
+    /// NAME, lists/arrays by index.</summary>
     private void MergeChildren()
     {
         if (Children is null) return;
         if (_node.Children is not null)
         {
-            for (int i = 0; i < _node.Children.Count; i++)
+            // Match by NAME, not position. Vanilla can reorder a compound's keys or insert new ones
+            // when it re-serializes (e.g. an item reload after an inventory edit); positional
+            // matching would then REPLACE every child past the first change — collapsing anything
+            // expanded. Reusing the same VM for a surviving key keeps its expansion/selection state.
+            var byName = new Dictionary<string, NodeViewModel>(StringComparer.Ordinal);
+            foreach (var vm in Children) byName.TryAdd(vm.Name, vm);
+
+            var desired = new List<NodeViewModel>(_node.Children.Count);
+            foreach (var (name, childNode) in _node.Children)
             {
-                var (name, childNode) = _node.Children[i];
-                if (i < Children.Count && Children[i].Name == name && Children[i].Type == childNode.Type)
+                if (byName.TryGetValue(name, out var existing) && existing.Type == childNode.Type)
                 {
-                    Children[i].ApplyUpdate(childNode);
+                    existing.ApplyUpdate(childNode);       // recurses; preserves this subtree's state
+                    desired.Add(existing);
                 }
                 else
                 {
-                    var replacement = new NodeViewModel(Root, ChildPath(name), childNode, this, name, _onExpand);
-                    if (i < Children.Count) Children[i] = replacement;
-                    else Children.Add(replacement);
+                    desired.Add(new NodeViewModel(Root, ChildPath(name), childNode, this, name, _onExpand));
                 }
             }
-            while (Children.Count > _node.Children.Count) Children.RemoveAt(Children.Count - 1);
+            ReconcileOrder(desired);
         }
         else if (_node.Items is not null)
         {
+            // lists/arrays are positional — elements have no stable name identity
             for (int i = 0; i < _node.Items.Count; i++)
             {
                 if (i < Children.Count && Children[i].Type == _node.Items[i].Type)
@@ -235,6 +242,23 @@ public sealed class NodeViewModel : ViewModelBase
             }
             while (Children.Count > _node.Items.Count) Children.RemoveAt(Children.Count - 1);
         }
+    }
+
+    /// <summary>Rearrange the Children collection in place to match <paramref name="desired"/> by
+    /// reference — moving/inserting existing VM instances (never rebuilding them) so WPF keeps each
+    /// row's expansion. Trailing VMs no longer present are trimmed.</summary>
+    private void ReconcileOrder(List<NodeViewModel> desired)
+    {
+        if (Children is null) return;
+        for (int i = 0; i < desired.Count; i++)
+        {
+            NodeViewModel want = desired[i];
+            if (i < Children.Count && ReferenceEquals(Children[i], want)) continue;
+            int current = Children.IndexOf(want);            // reference equality (no Equals override)
+            if (current >= 0) Children.Move(current, i);
+            else Children.Insert(i, want);                   // i <= Children.Count holds (prefix is filled)
+        }
+        while (Children.Count > desired.Count) Children.RemoveAt(Children.Count - 1);
     }
 
     /// <summary>Walk this subtree for a descendant by its full path; null if not materialized/found.</summary>
