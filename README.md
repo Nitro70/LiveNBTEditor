@@ -2,16 +2,23 @@
 
 **Edit Minecraft NBT in the *running* game — no file editing, no world reload, no mod loader.**
 
-LiveNBT is a two-part tool for **vanilla Minecraft Java 26.2**:
+[![Latest release](https://img.shields.io/github/v/release/Nitro70/LiveNBTEditor?label=download)](https://github.com/Nitro70/LiveNBTEditor/releases/latest)
+[![Minecraft](https://img.shields.io/badge/Minecraft-Java%2026.2-brightgreen)](https://www.minecraft.net/)
+[![Vanilla](https://img.shields.io/badge/mod%20loader-none%20required-blue)](#instant-use--no-install-no-launch-arguments-recommended)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-- a **Java agent** (`-javaagent`, ByteBuddy) injected into Minecraft that runs a small WebSocket server *inside* the integrated (or dedicated) server, and
-- a **Windows desktop editor** (WPF) that shows the live game's player, world, and inventory NBT as a tree you can edit, with changes applying **instantly** in-game.
+![The LiveNBT editor showing a live player's NBT tree, expanded into an enchanted item's components](docs/images/tree.png)
 
-Traditional NBT editors work on `.dat` files on disk, so you have to quit the world, edit, and reload. LiveNBT talks to the running server instead: when you change a value, the agent applies it to the live game object on the next server tick. Set `Health` and your hearts drop immediately; flip `weather.raining` and it starts raining; watch your `Pos` stream as you walk.
+Change a value and it lands in the running game on the very next tick. Set `Health` and your hearts drop immediately, flip `weather.raining` and it starts raining, pin `Pos` and watch it stream as you walk. **No `.dat` files, no quitting to the title screen, no world reload.**
 
-It works on **26.2 specifically** because the 26.x client and server ship **unobfuscated** (official Mojang names). That means the agent can hook the game by its real class and method names — **no mappings, no Fabric/Forge, no mod loader of any kind.** And with one click the app can load the agent into a **stock, already-running Minecraft** — no launch arguments at all (see below).
+It works on **26.2 specifically** because the 26.x client and server ship **unobfuscated** (official Mojang names), so the agent hooks the game by its real class and method names — **no mappings, no Fabric/Forge, no mod loader of any kind.** One click loads it into a **stock, already-running Minecraft**: no launch arguments, nothing installed into the game.
 
-> Works in singleplayer (the integrated server) and on dedicated servers you control.
+LiveNBT is two pieces:
+
+- a **Java agent** (`-javaagent`, ByteBuddy) running a small WebSocket server *inside* the integrated or dedicated server, and
+- a **Windows desktop editor** (WPF) showing the live player, world, and inventory NBT as a tree you can edit.
+
+> Works in singleplayer (the integrated server) and on dedicated servers you control — including **Linux** servers you connect to over the network.
 
 ---
 
@@ -20,8 +27,14 @@ It works on **26.2 specifically** because the 26.x client and server ship **unob
 - **Live NBT tree editor** — edit player data (health, food, XP, abilities, position, …) and world data (gamerules, time, weather, spawn, world border, difficulty) as a tree and see it apply at once. Every edit is validated against the real NBT type before it's sent; bad input is rejected with a readable message and never written to your save.
 - **Watches** — pin any value (or a whole compound subtree) and watch it update live as the game changes, several times a second.
 - **Inventory editor** — edit any of a player's 41 slots (hotbar, main, armor, offhand) with **searchable item and enchantment pickers** backed by the **full bundled 26.2 registry**, so every real item and enchantment id is one search away. Invalid ids/components are rejected and the player is restored unchanged.
+
+  ![The inventory editor with a slot selected, showing its item id, count and enchantments](docs/images/inventory.png)
+
 - **Edits apply live in-game** — the agent keeps the **integrated server ticking** while the app is connected, so edits take effect immediately even when Minecraft is in the background (no more "tab out and everything freezes"). Path-based edits touch only the field you changed — no whole-file rewrites, no lost updates.
-- **Copy as SNBT** — grab any tag in `/data`-style SNBT for use in commands.
+- **A real editor, not a viewer** — keyboard shortcuts throughout (edit, rename, delete, duplicate, reorder), **undo/redo** for every change you make, and **SNBT copy/paste** that round-trips with [NBT Studio](https://github.com/tryashtar/nbt-studio) — copy a tag out of one and paste it into the other. Edit any tag as SNBT text when you'd rather type than click.
+- **Deep find** — search every name and value in the loaded tree (substring or regex), jump hit to hit, or list every match and click to jump straight there.
+
+  ![The find window listing matches for a search across the whole tree](docs/images/find.png)
 - **Safe by default** — the agent binds `127.0.0.1` (loopback) only and requires a per-install auth token before any operation.
 
 ---
