@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.5.0
+
+Minecraft 26.3 support.
+
+### Changed
+- Updated for **Minecraft Java 26.3**. The agent is recompiled against 26.3 and the app now bundles
+  the full 26.3 item and enchantment registry (121 new items, including the poplar wood set,
+  concrete and wool slabs and stairs, cushions, and explorer maps). Verified end to end against a
+  real 26.3 dedicated server: agent loads, auth, roots, world get/set, and the inventory registry
+  all work.
+
+### Fixed
+- World clock read updated for a 26.3 API change (`ServerClockManager.getTotalTicks` was replaced by
+  reading the clock instance), so world `time.clocks` still serializes correctly.
+
 ## v0.4.1
 
 Bug fix for the live refresh. App-only; agent unchanged from v0.3.0.

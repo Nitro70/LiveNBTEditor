@@ -11,7 +11,7 @@ import java.nio.file.Path;
  * The one LiveNBT class visible to EVERY classloader — the agent injects just this class into the
  * bootstrap loader, and the woven advice calls only here.
  *
- * <p><b>Why (found by running the real 26.2 dedicated server):</b> the dedicated server's bundler
+ * <p><b>Why (found by running the real 26.2 dedicated server, still required on 26.3):</b> the dedicated server's bundler
  * loads all game classes in an isolated {@link URLClassLoader} whose parent chain skips the system
  * classpath — where {@code -javaagent} puts the agent jar. Inlined advice executes as part of the
  * woven class, so a direct reference to the hooks threw {@code NoClassDefFoundError} there (the

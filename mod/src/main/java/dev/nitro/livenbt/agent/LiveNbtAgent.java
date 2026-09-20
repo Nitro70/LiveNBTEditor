@@ -21,13 +21,13 @@ import static net.bytebuddy.matcher.ElementMatchers.named;
  * {@link LiveNbtHooks}. No mod loader involved. Works in the client (integrated server) and in a
  * dedicated server — the same jar, {@code -javaagent} or Dynamic Attach either way.
  *
- * <p><b>Weave placement (javap-verified on the 26.2 client AND server jars):</b> both concrete
+ * <p><b>Weave placement (javap-verified on the 26.3 client AND server jars):</b> both concrete
  * servers override {@code tickServer} — {@code IntegratedServer} calls super only while unpaused,
  * {@code DedicatedServer} always calls super. Weaving the base class too would therefore fire the
  * tick advice twice per tick whenever super runs, so the tick advice goes on the two
  * <i>overrides</i> only: each is the run loop's entry point and fires exactly once per iteration —
  * including while singleplayer is paused, and while a dedicated server is empty-paused
- * ({@code pause-when-empty-seconds}: 26.2's {@code tickServer} early-returns after
+ * ({@code pause-when-empty-seconds}: 26.3's {@code tickServer} early-returns after
  * {@code tickConnection()}, but it is still invoked, so queued edits keep draining with nobody
  * online). {@code stopServer} is the mirror image: both overrides unconditionally call super, so
  * the stop advice goes on the base {@code MinecraftServer} only and fires exactly once.

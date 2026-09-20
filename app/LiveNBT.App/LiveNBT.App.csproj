@@ -12,7 +12,7 @@
     <EmbeddedResource Include="Resources\livenbt-agent.jar" Condition="Exists('Resources\livenbt-agent.jar')" />
   </ItemGroup>
 
-  <!-- Full vanilla 26.2 item + enchantment ids, so the dropdowns are populated with the whole game
+  <!-- Full vanilla 26.3 item + enchantment ids, so the dropdowns are populated with the whole game
        even before/without a live registry fetch. Regenerate from a connected server if MC updates. -->
   <ItemGroup>
     <EmbeddedResource Include="Resources\items.txt" />
@@ -25,7 +25,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.4.1</Version>
+    <Version>0.5.0</Version>
   </PropertyGroup>
 
 </Project>

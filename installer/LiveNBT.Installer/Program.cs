@@ -66,7 +66,7 @@ internal static class Program
             }
             else
             {
-                Console.WriteLine("Next: launch Minecraft on your 26.2 profile and open a world, then run the LiveNBT");
+                Console.WriteLine("Next: launch Minecraft on your 26.3 profile and open a world, then run the LiveNBT");
                 Console.WriteLine("app and click Connect.");
             }
         }

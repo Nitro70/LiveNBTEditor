@@ -79,7 +79,7 @@ Watch push (no id). `value: null` means the path or root is gone (player logged 
 {"op": "update", "root": "player:Nitro70", "path": "Pos", "value": null}
 ```
 
-## World root tree (26.1.2)
+## World root tree (26.3)
 
 Virtual tree — every leaf maps to a live getter/setter. `add`/`delete` are not
 supported on world roots. 26.1 note: vanilla replaced `dayTime` with registry

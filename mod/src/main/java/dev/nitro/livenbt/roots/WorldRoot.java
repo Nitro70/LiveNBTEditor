@@ -57,7 +57,7 @@ public final class WorldRoot implements RootAdapter {
         CompoundTag clocks = new CompoundTag();
         server.registryAccess().lookupOrThrow(Registries.WORLD_CLOCK).listElements().forEach(ref -> {
             CompoundTag c = new CompoundTag();
-            c.putLong("totalTicks", level.clockManager().getTotalTicks(ref));
+            c.putLong("totalTicks", level.clockManager().getInstance(ref).totalTicks());
             clocks.put(ref.key().identifier().toString(), c);
         });
         time.put("clocks", clocks);

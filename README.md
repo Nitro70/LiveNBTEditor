@@ -1,41 +1,41 @@
 # LiveNBT
 
-**Edit Minecraft NBT in the *running* game — no file editing, no world reload, no mod loader.**
+**Edit Minecraft NBT in the *running* game: no file editing, no world reload, no mod loader.**
 
 [![Latest release](https://img.shields.io/github/v/release/Nitro70/LiveNBTEditor?label=download)](https://github.com/Nitro70/LiveNBTEditor/releases/latest)
-[![Minecraft](https://img.shields.io/badge/Minecraft-Java%2026.2-brightgreen)](https://www.minecraft.net/)
-[![Vanilla](https://img.shields.io/badge/mod%20loader-none%20required-blue)](#instant-use--no-install-no-launch-arguments-recommended)
+[![Minecraft](https://img.shields.io/badge/Minecraft-Java%2026.3-brightgreen)](https://www.minecraft.net/)
+[![Vanilla](https://img.shields.io/badge/mod%20loader-none%20required-blue)](#instant-use-no-install-no-launch-arguments-recommended)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![The LiveNBT editor showing a live player's NBT tree, expanded into an enchanted item's components](docs/images/tree.png)
 
 Change a value and it lands in the running game on the very next tick. Set `Health` and your hearts drop immediately, flip `weather.raining` and it starts raining, pin `Pos` and watch it stream as you walk. **No `.dat` files, no quitting to the title screen, no world reload.**
 
-It works on **26.2 specifically** because the 26.x client and server ship **unobfuscated** (official Mojang names), so the agent hooks the game by its real class and method names — **no mappings, no Fabric/Forge, no mod loader of any kind.** One click loads it into a **stock, already-running Minecraft**: no launch arguments, nothing installed into the game.
+It works on **26.3 specifically** because the 26.x client and server ship **unobfuscated** (official Mojang names), so the agent hooks the game by its real class and method names, with **no mappings, no Fabric/Forge, no mod loader of any kind.** One click loads it into a **stock, already-running Minecraft**: no launch arguments, nothing installed into the game.
 
 LiveNBT is two pieces:
 
 - a **Java agent** (`-javaagent`, ByteBuddy) running a small WebSocket server *inside* the integrated or dedicated server, and
 - a **Windows desktop editor** (WPF) showing the live player, world, and inventory NBT as a tree you can edit.
 
-> Works in singleplayer (the integrated server) and on dedicated servers you control — including **Linux** servers you connect to over the network.
+> Works in singleplayer (the integrated server) and on dedicated servers you control, including **Linux** servers you connect to over the network.
 
 ---
 
 ## Features
 
-- **Live NBT tree editor** — edit player data (health, food, XP, abilities, position, …) and world data (gamerules, time, weather, spawn, world border, difficulty) as a tree and see it apply at once. Every edit is validated against the real NBT type before it's sent; bad input is rejected with a readable message and never written to your save.
-- **Watches** — pin any value (or a whole compound subtree) and watch it update live as the game changes, several times a second.
-- **Inventory editor** — edit any of a player's 41 slots (hotbar, main, armor, offhand) with **searchable item and enchantment pickers** backed by the **full bundled 26.2 registry**, so every real item and enchantment id is one search away. Invalid ids/components are rejected and the player is restored unchanged.
+- **Live NBT tree editor**: edit player data (health, food, XP, abilities, position, and so on) and world data (gamerules, time, weather, spawn, world border, difficulty) as a tree and see it apply at once. Every edit is validated against the real NBT type before it's sent; bad input is rejected with a readable message and never written to your save.
+- **Watches**: pin any value (or a whole compound subtree) and watch it update live as the game changes, several times a second.
+- **Inventory editor**: edit any of a player's 41 slots (hotbar, main, armor, offhand) with **searchable item and enchantment pickers** backed by the **full bundled 26.3 registry**, so every real item and enchantment id is one search away. Invalid ids/components are rejected and the player is restored unchanged.
 
   ![The inventory editor with a slot selected, showing its item id, count and enchantments](docs/images/inventory.png)
 
-- **Edits apply live in-game** — the agent keeps the **integrated server ticking** while the app is connected, so edits take effect immediately even when Minecraft is in the background (no more "tab out and everything freezes"). Path-based edits touch only the field you changed — no whole-file rewrites, no lost updates.
-- **A real editor, not a viewer** — keyboard shortcuts throughout (edit, rename, delete, duplicate, reorder), **undo/redo** for every change you make, and **SNBT copy/paste** that round-trips with [NBT Studio](https://github.com/tryashtar/nbt-studio) — copy a tag out of one and paste it into the other. Edit any tag as SNBT text when you'd rather type than click.
-- **Deep find** — search every name and value in the loaded tree (substring or regex), jump hit to hit, or list every match and click to jump straight there.
+- **Edits apply live in-game**: the agent keeps the **integrated server ticking** while the app is connected, so edits take effect immediately even when Minecraft is in the background (no more "tab out and everything freezes"). Path-based edits touch only the field you changed, with no whole-file rewrites and no lost updates.
+- **A real editor, not a viewer**: keyboard shortcuts throughout (edit, rename, delete, duplicate, reorder), **undo/redo** for every change you make, and **SNBT copy/paste** that round-trips with [NBT Studio](https://github.com/tryashtar/nbt-studio), so you can copy a tag out of one and paste it into the other. Edit any tag as SNBT text when you'd rather type than click.
+- **Deep find**: search every name and value in the loaded tree (substring or regex), jump hit to hit, or list every match and click to jump straight there.
 
   ![The find window listing matches for a search across the whole tree](docs/images/find.png)
-- **Safe by default** — the agent binds `127.0.0.1` (loopback) only and requires a per-install auth token before any operation.
+- **Safe by default**: the agent binds `127.0.0.1` (loopback) only and requires a per-install auth token before any operation.
 
 ---
 
@@ -56,7 +56,7 @@ LiveNBT is two pieces:
 ```
 
 - The agent is attached at JVM start via `-javaagent`. Using ByteBuddy it hooks the (unobfuscated) server internals and stands up a small WebSocket server.
-- Every request is authenticated, then **queued and applied on the server thread** at the start of the next tick — the editor never touches game state off-thread.
+- Every request is authenticated, then **queued and applied on the server thread** at the start of the next tick, so the editor never touches game state off-thread.
 - Edits are **path-based** (`abilities.mayfly`, `Inventory[3].count`), so only the field you changed is touched.
 - The full wire protocol is documented in [`docs/protocol.md`](docs/protocol.md).
 
@@ -64,13 +64,13 @@ LiveNBT is two pieces:
 
 ## Requirements
 
-- **Minecraft Java 26.2**, vanilla (no mod loader). LiveNBT relies on 26.x being unobfuscated; other versions are not supported.
-- **Windows** — for the desktop editor app. The **agent is plain Java** and runs anywhere the game does, including Linux dedicated servers.
+- **Minecraft Java 26.3**, vanilla (no mod loader). LiveNBT relies on 26.x being unobfuscated; other versions are not supported.
+- **Windows**, for the desktop editor app. The **agent is plain Java** and runs anywhere the game does, including Linux dedicated servers.
 - To build from source: **Java 21+** (agent) and the **.NET SDK** (app).
 
 ---
 
-## Instant use — no install, no launch arguments (recommended)
+## Instant use: no install, no launch arguments (recommended)
 
 Just run stock vanilla Minecraft normally, then:
 
@@ -78,20 +78,20 @@ Just run stock vanilla Minecraft normally, then:
 2. Run the LiveNBT app and click **⚡ Attach to Minecraft**.
 
 That's it. The app finds the running game and loads the agent into it live via the JVM's Dynamic
-Attach API — launched by **Minecraft's own bundled Java**, so nothing extra is required — then reads
+Attach API (launched by **Minecraft's own bundled Java**, so nothing extra is required), then reads
 the access token and connects automatically. No `-javaagent` argument, no launcher edits, no installer.
 
 > How: the agent only rewrites method bodies, which the JVM allows on already-loaded classes
-> (retransformation). This is standard, supported instrumentation — not memory hacking.
+> (retransformation). This is standard, supported instrumentation, not memory hacking.
 
-## Permanent install — auto `-javaagent` (optional)
+## Permanent install: auto `-javaagent` (optional)
 
 If you'd rather the agent load every launch (e.g. for a dedicated server, or to skip the Attach
 click):
 
 1. Download the **LiveNBT installer** from [**Releases**](../../releases/latest) and run it.
 2. It drops `livenbt-agent.jar` into place and **adds the `-javaagent` argument to your Minecraft
-   launcher profile automatically** — you never edit JVM args by hand.
+   launcher profile automatically**, so you never edit JVM args by hand.
 3. Launch Minecraft, open a world, run the app, and **Connect**.
 
 ---
@@ -113,7 +113,7 @@ If you'd rather wire it up yourself:
 
 ## Dedicated server (Linux)
 
-The **same agent jar** runs inside a dedicated server — the app then shows **every online player**
+The **same agent jar** runs inside a dedicated server. The app then shows **every online player**
 (and their inventories) plus all world data, and connects to the server box by IP. Nothing here is
 Windows-specific: the agent is plain Java.
 
@@ -129,15 +129,15 @@ On the server box:
    ```json
    { "bind": "<server LAN IP, e.g. 192.168.1.50>", "port": 25599, "token": "<32 hex chars>" }
    ```
-   (`"0.0.0.0"` binds **every** interface — including a public one on a VPS. Only use it behind a
+   (`"0.0.0.0"` binds **every** interface, including a public one on a VPS. Only use it behind a
    firewall.)
 3. Restart the server. **If the box is reachable from the internet, this step is not optional:**
    either scope a firewall rule to your LAN
-   (`sudo ufw allow from 192.168.0.0/16 to any port 25599 proto tcp`), or — better on any box with
-   a public IP — keep `"bind": "127.0.0.1"` and use the SSH tunnel from the security note below.
+   (`sudo ufw allow from 192.168.0.0/16 to any port 25599 proto tcp`), or, better on any box with
+   a public IP, keep `"bind": "127.0.0.1"` and use the SSH tunnel from the security note below.
 
 In the app (on your PC): **Profiles… → Add**, set **Host** to the server's IP, port `25599`, and
-paste the `token` — then **Connect**. The roots dropdown lists `player:<name>` for everyone online
+paste the `token`, then **Connect**. The roots dropdown lists `player:<name>` for everyone online
 and `world:` for every dimension.
 
 Notes:
@@ -145,14 +145,14 @@ Notes:
 - **Attach instead of `-javaagent`** also works on Linux if the server is already running
   (`java -cp livenbt-agent.jar dev.nitro.livenbt.attach.SelfAttach <pid> /abs/path/livenbt-agent.jar`),
   but it needs a full JDK, the same user as the server process, and survives only until the next
-  restart — prefer the `-javaagent` line.
-- **Empty servers are fine** — even when `pause-when-empty-seconds` has paused the world, 26.2 still
+  restart, so prefer the `-javaagent` line.
+- **Empty servers are fine**: even when `pause-when-empty-seconds` has paused the world, 26.3 still
   invokes the tick entry point, so queued edits keep applying with nobody online. (Edits made while
-  paused live in memory until the next save — autosaves resume once a player joins, and a server
+  paused live in memory until the next save; autosaves resume once a player joins, and a server
   stop always saves.)
 - **systemd**: the config path follows the process working directory, so set `WorkingDirectory=` to
   the server folder (or pin it with `-Dlivenbt.config=/path/to/livenbt.json`).
-- **Security**: the socket is plain `ws://` and token-authenticated — treat it as LAN-only. Prefer a
+- **Security**: the socket is plain `ws://` and token-authenticated, so treat it as LAN-only. Prefer a
   scoped firewall rule; on an untrusted network keep `bind` at `127.0.0.1` and tunnel instead:
   `ssh -L 25599:127.0.0.1:25599 user@server`, then connect the app to `127.0.0.1`.
 
@@ -162,13 +162,13 @@ Notes:
 
 1. **Connect** to your world/server (`127.0.0.1:25599` by default) with your token.
 2. **Load** a root:
-   - a player — `player:<name>`
-   - a dimension — `world:minecraft:overworld`
-   - an inventory — `inventory:<name>`
-3. **Edit** a value by double-clicking it, typing, and pressing **Enter** — it applies instantly in-game (accepted values flash; rejected ones show a reason in the status bar).
-4. **Watch** a value from its right-click menu — it appears in the Watches panel and updates live.
+   - a player: `player:<name>`
+   - a dimension: `world:minecraft:overworld`
+   - an inventory: `inventory:<name>`
+3. **Edit** a value by double-clicking it, typing, and pressing **Enter**: it applies instantly in-game (accepted values flash; rejected ones show a reason in the status bar).
+4. **Watch** a value from its right-click menu: it appears in the Watches panel and updates live.
 5. Right-click for the full editing menu: **Edit as SNBT**, **Add tag / Quick add / Add as SNBT**, **Paste**, **Duplicate**, **Rename**, **Move up/down**, **Cut / Copy**, **Delete**. Items grey out where the game doesn't support the operation (world roots are structurally read-only; inventories edit per slot).
-6. In the **inventory** view, use the searchable item and enchantment pickers to build a slot from the bundled 26.2 registry, then apply.
+6. In the **inventory** view, use the searchable item and enchantment pickers to build a slot from the bundled 26.3 registry, then apply.
 
 ### Keyboard shortcuts
 
@@ -195,9 +195,9 @@ Tree-editing keys act on the selected row while the tree has focus; typing in a 
 
 What you can edit:
 
-- **Player** — anything in player NBT. Fast paths for `Pos`, `Rotation`, `Health`, `foodLevel`, `XpLevel`, and `abilities.*`; everything else round-trips through an entity reload.
-- **World** — `gamerules.<rule>`, `time.gameTime` and world-clock ticks, `weather.*`, `spawn.*`, `worldborder.*`, `difficulty` / `difficultyLocked`. (Most of these are server-global in vanilla — see [`docs/protocol.md`](docs/protocol.md).)
-- **Inventory** — the 41 slots per player (`0`–`8` hotbar, `9`–`35` main, `36`–`39` armor, `40` offhand).
+- **Player**: anything in player NBT. Fast paths for `Pos`, `Rotation`, `Health`, `foodLevel`, `XpLevel`, and `abilities.*`; everything else round-trips through an entity reload.
+- **World**: `gamerules.<rule>`, `time.gameTime` and world-clock ticks, `weather.*`, `spawn.*`, `worldborder.*`, `difficulty` / `difficultyLocked`. (Most of these are server-global in vanilla; see [`docs/protocol.md`](docs/protocol.md).)
+- **Inventory**: the 41 slots per player (`0`-`8` hotbar, `9`-`35` main, `36`-`39` armor, `40` offhand).
 
 ---
 
@@ -213,22 +213,22 @@ Config lives at **`.minecraft/config/livenbt.json`** and is **auto-created on fi
 }
 ```
 
-- `bind` — loopback (`127.0.0.1`) by default. Set `0.0.0.0` only for LAN/remote use on a network you trust.
-- `port` — WebSocket port (default `25599`).
-- `token` — 32 random hex chars, generated on first run. **Treat it like a password** — anyone with the token and network access to the port can edit your world. Token comparison is constant-time, and on Linux the file is created owner-only (`0600`).
+- `bind`: loopback (`127.0.0.1`) by default. Set `0.0.0.0` only for LAN/remote use on a network you trust.
+- `port`: WebSocket port (default `25599`).
+- `token`: 32 random hex chars, generated on first run. **Treat it like a password**, since anyone with the token and network access to the port can edit your world. Token comparison is constant-time, and on Linux the file is created owner-only (`0600`).
 
 ---
 
 ## Build from source
 
-**Agent** (`mod/`) — needs **Java 21+**:
+**Agent** (`mod/`) needs **Java 21+**:
 ```sh
 cd mod
 ./gradlew shadowJar        # Windows: .\gradlew.bat shadowJar
-# → mod/build/libs/livenbt-agent-*.jar
+# output: mod/build/libs/livenbt-agent-*.jar
 ```
 
-**App** (`app/`) — needs the **.NET SDK** (builds the Windows desktop app):
+**App** (`app/`) needs the **.NET SDK** (builds the Windows desktop app):
 ```sh
 dotnet build app/LiveNBT.App
 ```
